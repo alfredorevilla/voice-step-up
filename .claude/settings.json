@@ -28,5 +28,18 @@
     "anthropic-skills:pdf": "off",
     "anthropic-skills:import-memory": "off",
     "anthropic-skills:google-workspace": "off"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(scripts/voice-totp.sh)"
+    ],
+    "deny": [
+      "Read(~/.config/voice-step-up/**)",
+      "Bash(*voice-step-up/totp-secret*)",
+      "Bash(*totp-secret*)"
+    ]
+  },
+  "enabledPlugins": {
+    "playwright@anthropic-plugin-directory": true
   }
 }
