@@ -2,7 +2,7 @@
 
 **Source**: user spec of 2026-10-20 (no separate PRD file: this plan is the runbook and carries the Definition of Done)
 **Complexity**: Large (8 milestones, M0 to M7)
-**Status**: CONFIRMED by the user on 2026-10-20 (Pass B verifier found 9 defects in the draft; all fixed)
+**Status**: CONFIRMED by the user on 2026-10-20 (Pass B verifier found 9 defects in the draft; all fixed). Amended 2026-10-20 with the NIST SP 800-63B-4 and GDPR Article 9 items (user-approved): M1-A7, M3-A3, M5-A4, M7-A2, risk row, rule files.
 **Execution pattern**: `rfc-dag` (M2, M3 and M4 depend only on M1 and run in parallel; see Dependencies)
 
 ## Pre-flight
@@ -91,6 +91,7 @@ No application code exists yet, so there is nothing to mirror (stated explicitly
 | `.github/workflows/ci.yml`, `.github/workflows/eval.yml` | CREATE | CI |
 | `docs/adr/0001..0007`, `docs/entra-setup.md`, `docs/threat-model.md` | CREATE | Decisions and security |
 | `.claude/plans/voice-step-up.plan.md` | CREATE | This plan |
+| `.claude/lazy/rules/biometric-data.md`, `step-up-invariants.md`, `entra-tenant-hygiene.md`, `dotnet-testing.md`, `csharp-conventions.md`, `third-party-assets.md` | CREATE | Project rules, hook-served on matching edits |
 
 ## Dependencies
 M0 -> M1 -> {M2, M3, M4} (parallel) -> M5 (needs M2) -> M6 (needs M2, M3, M4, M5) -> M7. M4 T4.4 (live Entra spike) is attended: it needs you at the keyboard, so the loop pauses there; the rest of M4 runs unattended.
@@ -113,7 +114,7 @@ M0 -> M1 -> {M2, M3, M4} (parallel) -> M5 (needs M2) -> M6 (needs M2, M3, M4, M5
 - **T1.2** Challenge service (4-word CSPRNG phrase, single use, 60 s TTL, bound to user and action). TDD via `tdd-workflow`.
 - **T1.3** Step-up assertion issuer/validator (D5): tamper, expiry, wrong user, replay, missing bearer tests.
 - **T1.4** EF Core SQLite persistence, Data Protection encryption of embeddings, deletion path.
-- **T1.5** API (`dotnet-webapi`; `Microsoft.Identity.Web` usage checked against Microsoft Learn MCP): `GET /api/me`; enrollment (`consent`, `start`, `sample`, `complete`); `DELETE /api/voiceprint`; `POST /api/stepup/challenge`, `POST /api/stepup/verify`; analyst `GET /api/analyst/attempts`, `GET|PUT /api/analyst/thresholds`; demo high-risk `POST /api/payouts`; `Auth:Mode` = Entra (`Microsoft.Identity.Web`) or Fake; `[RequiresStepUp]` policy; rate limiting; fail-closed verifier timeout (default 3 s) returning the fallback instruction.
+- **T1.5** API (`dotnet-webapi`; `Microsoft.Identity.Web` usage checked against Microsoft Learn MCP): `GET /api/me`; enrollment (`consent`, `start`, `sample`, `complete`); `DELETE /api/voiceprint`; `POST /api/stepup/challenge`, `POST /api/stepup/verify`; analyst `GET /api/analyst/attempts`, `GET|PUT /api/analyst/thresholds`; demo high-risk `POST /api/payouts`; `Auth:Mode` = Entra (`Microsoft.Identity.Web`) or Fake; `[RequiresStepUp]` policy; attempt limiting (after 5 consecutive failed voice attempts a delay of at least 30 s; after 50 voice is disabled for that user and the fallback is offered; these are the NIST SP 800-63B-4 section 3.2.3.3 limits for a system without presentation attack detection, configurable) plus general rate limiting; fail-closed verifier timeout (default 3 s) returning the fallback instruction.
 - **T1.6** `StepUp.FakeAuthority`: discovery, JWKS, authorize/token for the SPA, and a token-mint helper for tests (claims `oid`, `tid`, `amr`, `auth_time`, `roles`).
 - **T1.7** Abstract `IVerifier` contract test suite, run against a `FakeVerifier`.
 
@@ -124,6 +125,7 @@ M0 -> M1 -> {M2, M3, M4} (parallel) -> M5 (needs M2) -> M6 (needs M2, M3, M4, M5
 - [ ] M1-A4. A verifier timeout or error returns the fallback instruction and never a pass (test).
 - [ ] M1-A5. Deleting a voiceprint removes the embedding row and later step-up attempts get ReasonCode `NoVoiceprint` (test).
 - [ ] M1-A6. Test and runtime configuration switch between Entra and the fake authority with no code change.
+- [ ] M1-A7. After 5 consecutive failed voice attempts a user must wait at least 30 s before the next; after 50 voice is disabled for that user and the fallback is offered (tests; the limits are configurable).
 
 ## Milestone M2: Real verifier and audio pipeline
 - **T2.1** Spike with go/no-go: sherpa ASR (Whisper tiny.en first) checksum-verified, latency on 20 short clips. Record the outcome in ADR-0002. If p95 latency is above 3 s, choose a smaller model or stop and ask.
@@ -144,14 +146,14 @@ M0 -> M1 -> {M2, M3, M4} (parallel) -> M5 (needs M2) -> M6 (needs M2, M3, M4, M5
 ## Milestone M3: SPA
 - **T3.1** Vite + React + TypeScript scaffold in `web/` (`vite-patterns`, `react-patterns`), ESLint, Vitest; MSAL config for Entra and for the fake authority. `@azure/msal-browser` v5 takes `system.protocolMode: "OIDC"` plus `knownAuthorities` for a generic OIDC authority (Learn's v3-to-v5 migration note moves `protocolMode` from `auth` to `system`); the MSAL API is checked with Context7 and a spike confirms the full sign-in against the fake authority.
 - **T3.2** AudioWorklet capture and WAV encoder (unit-tested with synthetic buffers); permission denied, muted-mic and level-meter states.
-- **T3.3** Screens: sign-in, enrollment with consent, step-up, privacy (withdraw and delete), analyst (attempt table, threshold editor with a "would pass" preview from logged scores).
+- **T3.3** Screens: sign-in, enrollment with an explicit-consent screen (what is collected, why, how long it is kept, that withdrawal and deletion are possible, that an alternative exists; GDPR Article 9), step-up, privacy (withdraw and delete), analyst (attempt table, threshold editor with a "would pass" preview from logged scores).
 - **T3.4** Fallback via `acquireTokenRedirect` with the `ngcmfa` claims request and return handling.
 - **T3.5** Component tests (`react-testing`) and basic accessibility checks.
 
 **Acceptance M3**
 - [ ] M3-A1. A user can complete sign-in, consent, enrollment and a step-up against the fake authority in the browser.
 - [ ] M3-A2. Denied microphone permission and a muted mic show a clear error and offer the fallback.
-- [ ] M3-A3. The privacy screen withdraws consent and deletes the voiceprint, with confirmation.
+- [ ] M3-A3. The consent screen states what is collected, why, how long it is kept, that withdrawal and deletion are possible, and that an alternative exists. The privacy screen withdraws consent and deletes the voiceprint, with confirmation, and withdrawing is no harder than giving consent.
 - [ ] M3-A4. The analyst screen shows score, result and reason per attempt, and a threshold change previews the effect on logged attempts.
 - [ ] M3-A5. The SPA holds no client secret and uses only the authorization code flow with PKCE (code and config check).
 
@@ -171,7 +173,7 @@ M0 -> M1 -> {M2, M3, M4} (parallel) -> M5 (needs M2) -> M6 (needs M2, M3, M4, M5
 
 ## Milestone M5: FAR/FRR evaluation
 - **T5.1** `eval/StepUp.Eval`: fetch LibriSpeech `test-clean` from OpenSLR (md5 check) into a git-ignored folder; seeded trial lists; degradations (noise at set SNRs, 8 kHz band-limit, 2 s clips). Spoof set: TTS clips only if the TTS model licence is clean (checked first with Exa search and fetch of the model card); otherwise report spoofing as not measured.
-- **T5.2** Metrics: FAR, FRR, EER, DET points, Wilson 95% intervals; cohort mean score normalization experiment; unit tests with hand-computed values.
+- **T5.2** Metrics: FAR, FRR, EER, DET points, Wilson 95% intervals; cohort mean score normalization experiment; unit tests with hand-computed values. Results are reported next to the NIST SP 800-63B-4 targets (false match rate of 1 in 10,000 or better, false non-match rate under 5%) with the number of impostor trials that would be needed to support the first (zero errors in n trials bounds the rate at about 3/n with 95% confidence, so about 30,000 trials).
 - **T5.3** Run and publish `docs/eval-report.md` plus CSV, with attribution and a "small test set" caveat; `scripts/eval.sh`; manual `eval.yml` workflow.
 - **T5.4** Set default thresholds in configuration from the report.
 
@@ -179,7 +181,7 @@ M0 -> M1 -> {M2, M3, M4} (parallel) -> M5 (needs M2) -> M6 (needs M2, M3, M4, M5
 - [ ] M5-A1. `scripts/eval.sh` reproduces the report from a clean checkout (dataset fetched, checksums verified).
 - [ ] M5-A2. The report states FAR and FRR per threshold and per condition, with intervals and the number of trials.
 - [ ] M5-A3. Metric calculations are unit-tested against hand-computed examples.
-- [ ] M5-A4. The report states its limits: read speech, small speaker count, no real-world spoofing coverage.
+- [ ] M5-A4. The report states its limits: read speech, small speaker count, no real-world spoofing coverage, and that the sample is too small to demonstrate the NIST SP 800-63B-4 false match rate of 1 in 10,000.
 - [ ] M5-A5. Default thresholds in config trace to the report.
 
 ## Milestone M6: Edge cases and end-to-end tests
@@ -197,13 +199,13 @@ M0 -> M1 -> {M2, M3, M4} (parallel) -> M5 (needs M2) -> M6 (needs M2, M3, M4, M5
 ## Milestone M7: Docs, threat model, one-command demo
 - **T7.1** `docker compose up --build` (offline mode, fake authority) and `scripts/demo-entra.sh` (real Entra); README quickstart; health checks. Validate on a clean clone.
 - **T7.2** Run `security-threat-model` interactively after the code exists; output `docs/threat-model.md`; README links it.
-- **T7.3** ADRs 0001 to 0007 (`architecture-decision-records`); README: architecture, privacy and consent, data retention, honest limits, attributions (`NOTICE`).
+- **T7.3** ADRs 0001 to 0007 (`architecture-decision-records`); README: architecture, privacy and consent, data retention, honest limits (including that NIST SP 800-63B-4 says voice comparison SHALL NOT be used, that this project verifies centrally rather than on the user's device, and that it is a demonstrator, not a conformant authenticator), attributions (`NOTICE`).
 - **T7.4** CI complete: build, test, web, Bicep, E2E, actionlint, compose config.
 - **T7.5** After implementation: `/init` and `/update-docs`.
 
 **Acceptance M7**
 - [ ] M7-A1. On a clean clone, one command starts the offline demo and the health endpoints return healthy.
-- [ ] M7-A2. The README contains the threat model summary, honest limits, privacy and consent statements, and the FAR/FRR results table.
+- [ ] M7-A2. The README contains the threat model summary, honest limits (including the NIST SP 800-63B-4 position on voice), privacy and consent statements, and the FAR/FRR results table.
 - [ ] M7-A3. `docs/threat-model.md` covers replay, synthetic voice, enrollment abuse, threshold tampering, fallback downgrade, `amr` forgery, consent and deletion, and audio handling.
 - [ ] M7-A4. All CI jobs are green on the pull request.
 - [ ] M7-A5. `/init` and `/update-docs` have run and their output is committed.
@@ -231,13 +233,14 @@ git grep -nIE '<tenant-domain>|<tenant-guid>' || true   # filled in at run time 
 | Headless Chromium may ignore the fake-microphone flag | Medium | Use the new headless Chromium channel; spike at the start of M6 T6.2 |
 | Windows `az` is already signed in to other tenants | High | Tenant assertion in every script (M4-A3) |
 | Biometric data and a public repo | High | No real voice data in the repo, no raw audio stored, consent and deletion paths, README privacy section |
+| The project cannot conform to NIST SP 800-63B-4 (voice comparison SHALL NOT be used; the 1-in-10,000 false match rate needs a far larger test set; comparison is central) | High | Say so in the README and threat model; keep the project labelled a demonstrator |
 | Model and dataset licence obligations | Low | Attribution in `NOTICE`; fetch scripts, not redistribution |
 | Scope: ASR + evaluation + Bicep + SPA in one repo | High | Parallel milestones, explicit go/no-go spikes, ASR gate before M5 |
 
 ## Definition of Done
 Every Acceptance item below must be checked. This list is the complete union of the milestone Acceptance lists.
 - [ ] M0-A1, M0-A2, M0-A3, M0-A4
-- [ ] M1-A1, M1-A2, M1-A3, M1-A4, M1-A5, M1-A6
+- [ ] M1-A1, M1-A2, M1-A3, M1-A4, M1-A5, M1-A6, M1-A7
 - [ ] M2-A1, M2-A2, M2-A3, M2-A4, M2-A5
 - [ ] M3-A1, M3-A2, M3-A3, M3-A4, M3-A5
 - [ ] M4-A1, M4-A2, M4-A3, M4-A4, M4-A5
