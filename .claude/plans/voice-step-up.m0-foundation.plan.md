@@ -19,12 +19,12 @@ Covers the whole chain of plans (the other plans do not repeat it). Availability
 
 | Tool | Type | Needed by | Availability check |
 |---|---|---|---|
-| `dotnet-webapi` | Skill (repo-local, `.claude/skills/`) | M2, M3 | `test -f .claude/skills/dotnet-webapi/SKILL.md` and listed in available skills |
+| `dotnet-webapi` | Skill (repo-local, `.claude/skills/`) | T2.5 | `test -f .claude/skills/dotnet-webapi/SKILL.md` and listed in available skills |
 | `run-tests`, `platform-detection`, `scaffold-dotnet-test-project` | Skills (repo-local) | M0 to M7 (`filter-syntax` is a support skill that `run-tests` reads) | `test -f .claude/skills/<name>/SKILL.md` for each |
 | `test-anti-patterns`, `assertion-quality` | Skills (repo-local) | T7.3 (`test-analysis-extensions` is a support skill they read) | `test -f .claude/skills/<name>/SKILL.md` for each |
 | `authoring-github-workflows` | Skill (repo-local, edited) | T0.4, T8.4 | `test -f .claude/skills/authoring-github-workflows/SKILL.md` |
 | `security-threat-model` | Skill (repo-local, edited) | T1.3, T8.2 | `test -f .claude/skills/security-threat-model/SKILL.md` |
-| `tdd-workflow`, `security-review`, `docker-patterns`, `architecture-decision-records`, `react-patterns`, `react-testing`, `vite-patterns` | Skills (user-wide, installed) | T1.2 to T8.3 (named in the tasks) | each listed in the session's available skills |
+| `tdd-workflow`, `security-review`, `docker-patterns`, `architecture-decision-records`, `react-patterns`, `react-testing`, `vite-patterns` | Skills (user-wide, installed) | `tdd-workflow` T2.2; `security-review` T7.3; `docker-patterns` T3.6; `architecture-decision-records` T1.2; `react-patterns` and `vite-patterns` T4.1; `react-testing` T4.5 | each listed in the session's available skills |
 | `e2e-testing` | Skill (user-wide, user-invocable only, so not in the session listing) | T7.2 | `test -f ~/.claude/skills/e2e-testing/SKILL.md` |
 | `/code-review` | Command (ECC) | Finish step | listed in available skills |
 | `/init`, `/update-docs` | Commands | T8.5 | listed in available skills |
@@ -40,7 +40,7 @@ Covers the whole chain of plans (the other plans do not repeat it). Availability
 | `git` | CLI | all | `git --version` |
 | `az` >= 2.73.0 (Windows install via WSL interop, 2.80.0 seen) with `az bicep` >= 0.36.1 (0.39.26 seen; pinned to v0.48.1 by P6) | CLI | T0.5, M5 | `az version` and `az bicep version`, then `az account show --query tenantId -o tsv \| tr -d '\r'` equals `$VOICE_STEPUP_TENANT` |
 | `actionlint` 1.7.7 (not installed; downloaded and checksum-verified by the `authoring-github-workflows` snippet into a temp dir) | CLI | T0.4, T8.4 | `curl -fsI https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz` succeeds; the snippet's `sha256sum -c` is the integrity proof |
-| `curl`, `sha256sum` | CLI | T3.6, T6.1 | `command -v curl sha256sum` |
+| `curl`, `sha256sum` | CLI | T0.4, T0.5, T3.6, T6.1 | `command -v curl sha256sum` |
 | `@playwright/test` 1.64.1 (npm devDependency) | CLI | T7.2 | `npx playwright --version` after T4.1 creates `web/package.json` |
 
 ## Summary

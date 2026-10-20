@@ -18,7 +18,7 @@ We'll know we're right when a reviewer can run it with one command, read measure
 | Metric | Target | How measured |
 |---|---|---|
 | One-command run on a clean clone | Works, health endpoints healthy | M8-A1 |
-| False-accept and false-reject rates | Reported per threshold and condition, with intervals and limits | `docs/eval-report.md` (M6-A2, M6-A4) |
+| False-accept and false-reject rates | Reported per threshold and condition, with intervals and limits | The published evaluation report (M6-A2, M6-A4) |
 | Tests cover flows and edge cases and run in CI | CI green | M7-A1, M7-A2, M8-A4 |
 | Acceptance items complete | 46 of 46 | Definition of Done below |
 
@@ -40,7 +40,7 @@ We'll know we're right when a reviewer can run it with one command, read measure
 - Mobile clients.
 - Multi-IdP support.
 - A deployable package (a stretch milestone later).
-- Entra external MFA as a built mode (documented as an option in ADR-0008).
+- Entra external MFA as a built mode (documented as an option only).
 
 ## Constraints and settled decisions (user)
 1. IdP: Microsoft Entra ID in the user's work tenant. The tenant domain and ids are never committed; they are passed as parameters.
@@ -49,7 +49,7 @@ We'll know we're right when a reviewer can run it with one command, read measure
 4. CI and the evaluation use an in-process fake OIDC authority; the live demo uses real Entra. The default one-command demo runs offline with the fake authority.
 5. Fallback factor: Entra MFA re-authentication, behind an interface.
 6. SPA: authorization code with PKCE, no client secret. React + Vite + TypeScript.
-7. Model: WeSpeaker ResNet34-LM via sherpa-onnx (CPU, spiked on this machine). Dataset: LibriSpeech test-clean with scripted degradations. Evidence and alternatives are in the M1 plan.
+7. A self-hosted open-source speaker-verification model that runs on CPU, and a public voice dataset with a clean licence for the evaluation, were selected from evidence; the recommendations and alternatives are in the M1 plan.
 
 ## Compliance position
 - NIST SP 800-63B-4 (2025-08-26) says "Biometric comparison based on voice SHALL NOT be used", requires a false match rate of 1 in 10,000 or better, a non-biometric alternative, and attempt limits. This project is a demonstrator, not a conformant authenticator, and says so.
@@ -57,14 +57,14 @@ We'll know we're right when a reviewer can run it with one command, read measure
 
 ## Documentation order
 1. Decisions are written as ADRs when they are made (Proposed, then Accepted). ADRs pending a spike (0002, 0004) are finalised when the spike lands.
-2. `docs/architecture.md` is written after the key ADRs and before any parallel milestone starts (M1).
+2. The architecture document is written after the key ADRs and before any parallel milestone starts (M1).
 3. A design-level threat model comes with the architecture (M1). M8 refreshes it with code evidence.
-4. Per-milestone design docs are optional and written just before the milestone needs them. Planned: `docs/design/verifier.md` in M3 (after the ASR spike) and `docs/design/evaluation-protocol.md` in M6 (before any result is seen). Others only when a part is security-sensitive, non-obvious, built by parallel implementers, or expensive to change (at least two of these).
+4. Per-milestone design docs are optional and written just before the milestone needs them. Planned: a verifier design doc in M3 (after the ASR spike) and an evaluation-protocol doc in M6 (before any result is seen). Others only when a part is security-sensitive, non-obvious, built by parallel implementers, or expensive to change (at least two of these).
 5. M8 checks every ADR and document against the code.
 
 ## Delivery Milestones
 <!-- Status: pending | in-progress | complete. Each milestone has its own plan, generated or re-grounded with /ecc-plan before it runs. -->
-<!-- Execution pattern: rfc-dag. M0 and M1 run first and in parallel; M2 needs both; M3, M4 and M5 run in parallel after M2; M6 needs M3; M7 needs M3 to M6; M8 needs M7. M1 (user confirmation) and M5 T5.4 (live spike) are attended. -->
+<!-- Execution pattern: rfc-dag. M0 and M1 run first and in parallel; M2 needs both; M3, M4 and M5 run in parallel after M2; M6 needs M3; M7 needs M3 to M6; M8 needs M7. M1 (user confirmation) and the live Entra spike in M5 are attended. -->
 
 | # | Milestone | Outcome | Depends on | Status | Plan |
 |---|---|---|---|---|---|
@@ -80,16 +80,16 @@ We'll know we're right when a reviewer can run it with one command, read measure
 
 ## Open Questions
 - [ ] Is a subscription available in the work tenant, and can the user register apps there? (answered by the M0 probe)
-- [ ] Do Entra access tokens carry the expected `amr` and `auth_time` for the fallback rule? (answered by the live spike, M5 T5.4)
-- [ ] Is the Entra external-MFA option worth a separate plan later? (ADR-0008)
+- [ ] Do Entra access tokens carry the expected `amr` and `auth_time` for the fallback rule? (answered by the live Entra spike)
+- [ ] Is the Entra external-MFA option worth a separate plan later?
 
 ## Risks
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| Biometric data in a public repo | High | High | No real voice data committed, no raw audio stored, consent and deletion paths, README privacy section (biometric-data rule) |
+| Biometric data in a public repo | High | High | No real voice data committed, no raw audio stored, consent and deletion paths, README privacy section |
 | The project cannot conform to NIST SP 800-63B-4 | High | Medium | State it in the README and threat model; label the project a demonstrator |
 | Scope: ASR, evaluation, Bicep and an SPA in one repo | High | Medium | Parallel milestones, go/no-go spikes, the design review in M1 |
-| Model and dataset licence obligations | Low | Medium | Attribution in `NOTICE`; fetch scripts, not redistribution (third-party-assets rule) |
+| Model and dataset licence obligations | Low | Medium | Attribution in `NOTICE`; fetch scripts, not redistribution |
 
 ## Definition of Done
 Every item below must be checked. The text of each item lives in its milestone plan; this list is the complete union of the Acceptance lists of M0 to M8 (46 items). A completeness check compares the item ids in the plans with this list.
