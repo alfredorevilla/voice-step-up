@@ -15,7 +15,7 @@ Voice MUST NOT be the only factor. No endpoint may accept a step-up assertion un
 
 Any verifier failure, exception, timeout or cancellation MUST produce the fallback instruction. It MUST NOT produce a pass.
 
-The `amr: ["voice"]` assertion MUST be issued only after a verifier pass whose score is at or above the stored threshold and a passing phrase check.
+The `amr: ["vbm"]` assertion MUST be issued only after a verifier pass whose score is at or above the stored threshold and a passing phrase check.
 
 A challenge MUST be single use, bound to the user and action, and expire after its TTL.
 

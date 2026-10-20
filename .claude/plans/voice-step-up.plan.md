@@ -2,7 +2,7 @@
 
 **Source**: user spec of 2026-10-20 (no separate PRD file: this plan is the runbook and carries the Definition of Done)
 **Complexity**: Large (8 milestones, M0 to M7)
-**Status**: CONFIRMED by the user on 2026-10-20 (Pass B verifier found 9 defects in the draft; all fixed). Amended 2026-10-20 with the NIST SP 800-63B-4 and GDPR Article 9 items (user-approved): M1-A7, M3-A3, M5-A4, M7-A2, risk row, rule files.
+**Status**: CONFIRMED by the user on 2026-10-20 (Pass B verifier found 9 defects in the draft; all fixed). Amended 2026-10-20 with the NIST SP 800-63B-4 and GDPR Article 9 items (user-approved): M1-A7, M3-A3, M5-A4, M7-A2, risk row, rule files. Amended again 2026-10-20 (user-approved): claim value `vbm` instead of `voice`, and D11 / ADR-0008 for the Entra external-MFA option (stretch, outside this plan).
 **Execution pattern**: `rfc-dag` (M2, M3 and M4 depend only on M1 and run in parallel; see Dependencies)
 
 ## Pre-flight
@@ -43,7 +43,7 @@ Every tool a task below invokes. Availability checks run before M0 starts. Any f
 | `@playwright/test` 1.64.1 (npm devDependency) | CLI | T6.2 | `npx playwright --version` after T3.1 creates `web/package.json` |
 
 ## Summary
-An ASP.NET Core service adds a spoken-phrase step-up to an Entra ID sign-in. A service-side policy decides when an action needs step-up. The browser records a server-issued random phrase; an in-process open-source speaker-verification model (sherpa-onnx, WeSpeaker ONNX, CPU) plus a phrase check return a score and pass/fail. On pass the service issues a short-lived signed assertion with `amr: ["voice"]`; on fail, error or timeout it falls back to an Entra MFA re-authentication. Voice never replaces the Entra sign-in. A React SPA covers enrollment, step-up, consent withdrawal and an analyst view. Entra is provisioned with in-house Bicep and the Azure CLI. CI and the scripted false-accept/false-reject (FAR/FRR) evaluation need no tenant.
+An ASP.NET Core service adds a spoken-phrase step-up to an Entra ID sign-in. A service-side policy decides when an action needs step-up. The browser records a server-issued random phrase; an in-process open-source speaker-verification model (sherpa-onnx, WeSpeaker ONNX, CPU) plus a phrase check return a score and pass/fail. On pass the service issues a short-lived signed assertion with `amr: ["vbm"]`; on fail, error or timeout it falls back to an Entra MFA re-authentication. Voice never replaces the Entra sign-in. A React SPA covers enrollment, step-up, consent withdrawal and an analyst view. Entra is provisioned with in-house Bicep and the Azure CLI. CI and the scripted false-accept/false-reject (FAR/FRR) evaluation need no tenant.
 
 ## Settled by the user
 1. IdP: Microsoft Entra ID, work tenant (value kept out of the repo, passed as `VOICE_STEPUP_TENANT`).
@@ -60,12 +60,13 @@ An ASP.NET Core service adds a spoken-phrase step-up to an Entra ID sign-in. A s
 | D2 | Liveness = server-issued single-use random phrase (4 words, CSPRNG, 60 s TTL) AND an ASR transcript check AND the speaker score | A random phrase only defeats replay if the content is checked. ASR via sherpa-onnx offline recognizer (Whisper tiny.en candidate, gated by the M2 spike). |
 | D3 | Score = cosine similarity computed by the service from sherpa embeddings (not `SpeakerEmbeddingManager.Verify`, which returns a bool) | The spec needs a score for the analyst log. |
 | D4 | Browser captures PCM with an AudioWorklet and uploads 16 kHz mono PCM16 WAV | No ffmpeg or codec decoding on the server. |
-| D5 | Step-up result = signed JWT assertion (ES256, `amr:["voice"]`, bound to the Entra `oid`/`tid`, `jti`, 5 min), valid only together with a valid bearer token for the same user | Matches "the service issues an amr claim"; voice is never the only factor. |
+| D5 | Step-up result = signed JWT assertion (ES256, `amr:["vbm"]`, bound to the Entra `oid`/`tid`, `jti`, 5 min), valid only together with a valid bearer token for the same user | Matches "the service issues an amr claim"; voice is never the only factor. `vbm` ("Biometric with voiceprint") is the identifier Entra's external-MFA documentation lists, so the spec's "voice" maps to it (decision of 2026-10-20). The issuer keeps claim and signing logic out of the HTTP layer so it can later back OIDC endpoints (D11). |
 | D6 | Fallback accepted when the Entra access token shows fresh MFA (`amr` includes `mfa`/`ngcmfa`, recent `auth_time`/`iat`). Acceptance rule confirmed in the live tenant spike (M4 T4.4) | Learn documents a claims request `{"access_token":{"amr":{"essential":true,"values":["ngcmfa"]}}}` and a 10-minute MFA validity for the authentication methods API; applicability to this API is UNVERIFIED until the spike. |
 | D7 | Data: SQLite via EF Core; embeddings encrypted with ASP.NET Data Protection; no raw audio ever stored or logged | Spec data model. Stored embeddings record the model id, so switching models requires re-enrollment. |
 | D8 | Offline demo mode: `docker compose up` starts the API, SPA and the fake authority with no tenant; `./scripts/demo-entra.sh` uses real Entra | Satisfies "a reviewer can run it with one command" without requiring a tenant. |
 | D9 | SPA: React + Vite + TypeScript, Vitest + Testing Library, Playwright E2E | Matches installed react-* and vite-patterns skills. |
 | D10 | Repo licence MIT. Third-party attributions in `NOTICE`/README (sherpa-onnx Apache-2.0, WeSpeaker model CC BY 4.0, LibriSpeech CC BY 4.0) | Public showcase. |
+| D11 | Entra external MFA is a documented option, not built here (ADR-0008) | Entra can call an external provider as an MFA method: Microsoft Learn describes a Conditional Access "Require multifactor authentication" policy, an OIDC discovery document, an authorization endpoint that takes `id_token_hint`, a `jwks_uri` with `x5c`, RS256, one `acr` and one `amr` (`vbm`) in the returned `id_token`, public HTTPS, admin consent, and a tenant-wide authentication-methods change (scope it to a test group). It conflicts with the offline default and needs public HTTPS, so it is a separate plan if pursued. Licensing and availability for the tenant are UNVERIFIED. |
 
 ## Open questions resolved (user confirmed the recommendations on 2026-10-20; also confirmed: D8 offline demo default, D9 React + Vite + TypeScript)
 | Question | Decision | Evidence |
@@ -89,7 +90,7 @@ No application code exists yet, so there is nothing to mirror (stated explicitly
 | `models/models.lock` | CREATE | Pinned model URLs and SHA-256 (model files are not committed) |
 | `Dockerfile`, `web/Dockerfile`, `compose.yaml` | CREATE | One-command run |
 | `.github/workflows/ci.yml`, `.github/workflows/eval.yml` | CREATE | CI |
-| `docs/adr/0001..0007`, `docs/entra-setup.md`, `docs/threat-model.md` | CREATE | Decisions and security |
+| `docs/adr/0001..0008`, `docs/entra-setup.md`, `docs/threat-model.md` | CREATE | Decisions and security |
 | `.claude/plans/voice-step-up.plan.md` | CREATE | This plan |
 | `.claude/lazy/rules/biometric-data.md`, `step-up-invariants.md`, `entra-tenant-hygiene.md`, `dotnet-testing.md`, `csharp-conventions.md`, `third-party-assets.md` | CREATE | Project rules, hook-served on matching edits |
 
@@ -199,7 +200,7 @@ M0 -> M1 -> {M2, M3, M4} (parallel) -> M5 (needs M2) -> M6 (needs M2, M3, M4, M5
 ## Milestone M7: Docs, threat model, one-command demo
 - **T7.1** `docker compose up --build` (offline mode, fake authority) and `scripts/demo-entra.sh` (real Entra); README quickstart; health checks. Validate on a clean clone.
 - **T7.2** Run `security-threat-model` interactively after the code exists; output `docs/threat-model.md`; README links it.
-- **T7.3** ADRs 0001 to 0007 (`architecture-decision-records`); README: architecture, privacy and consent, data retention, honest limits (including that NIST SP 800-63B-4 says voice comparison SHALL NOT be used, that this project verifies centrally rather than on the user's device, and that it is a demonstrator, not a conformant authenticator), attributions (`NOTICE`).
+- **T7.3** ADRs 0001 to 0008, where 0008 records the Entra external-MFA option and its prerequisites (`architecture-decision-records`); README: architecture, privacy and consent, data retention, honest limits (including that NIST SP 800-63B-4 says voice comparison SHALL NOT be used, that this project verifies centrally rather than on the user's device, and that it is a demonstrator, not a conformant authenticator), attributions (`NOTICE`).
 - **T7.4** CI complete: build, test, web, Bicep, E2E, actionlint, compose config.
 - **T7.5** After implementation: `/init` and `/update-docs`.
 
@@ -252,7 +253,7 @@ Every Acceptance item below must be checked. This list is the complete union of 
 ## Acceptance (plan level)
 - [ ] All eight milestones are complete and every item in the Definition of Done is checked.
 - [ ] Validation commands pass.
-- [ ] Every ADR 0001 to 0007 exists and matches the implementation.
+- [ ] Every ADR 0001 to 0008 exists and matches the implementation.
 - [ ] No secret, tenant identifier or raw audio is committed (history included).
 
 ## Finish
