@@ -7,12 +7,12 @@
 
 ## Pre-flight
 Human-only. Gate for this whole chain of plans: nothing starts until every box is `[x]` and the user says "pre-flight done".
-- [ ] P1. Sign in to the work tenant with the Windows `az`: `az login --tenant "<tenant domain or id>"` (browser or broker). Put the same value in an untracked `.env.local` as `VOICE_STEPUP_TENANT`. It is never committed.
-- [ ] P2. Choose which Azure subscription in the tenant to use and approve creating the resource group `rg-voice-step-up` in it (an external change). A Graph Bicep deploy needs a subscription and resource group in the tenant (Microsoft Learn); whether a subscription exists there is unchecked, and the M0 probe lists what you can see.
+- [x] P1. Sign in to the work tenant with the Windows `az`: `az login --tenant "<tenant domain or id>"` (browser or broker). Put the same value in an untracked `.env.local` as `VOICE_STEPUP_TENANT`. It is never committed.
+- [x] P2. Choose which Azure subscription in the tenant to use and approve creating the resource group `rg-voice-step-up` in it (an external change). A Graph Bicep deploy needs a subscription and resource group in the tenant (Microsoft Learn); whether a subscription exists there is unchecked, and the M0 probe lists what you can see.
 - [ ] P3. Name an Entra test user in that tenant with MFA registered (Authenticator or passkey). The fallback factor needs it. You sign in as that user yourself in the live smoke test (M5 T5.4); I never handle its credentials.
 - [ ] P4. (Only if the M0 probe shows you cannot register apps.) Ask a tenant admin for the Application Developer role, or for the "Users can register applications" setting.
-- [ ] P5. System libraries for the E2E browser (needs sudo): `sudo npx -y playwright@1.64.1 install-deps chromium`.
-- [ ] P6. In your own shell (these write the Windows-side az profile, outside this worktree): `az config set core.collect_telemetry=false` and `az bicep install --version v0.48.1`. The installed Bicep is 0.39.26. T0.5 then verifies the binary's SHA-256 read-only against the published digest.
+- [ ] P5. System libraries for the E2E browser. First check whether any are missing: `ldd ~/.cache/ms-playwright/chromium_headless_shell-*/*/chrome-headless-shell | grep "not found"`. Nothing printed means skip the install (on 2026-10-20 nothing was missing for build 1243). Otherwise run `sudo npx -y playwright@1.64.1 install-deps chromium`. The browser build for 1.64.1 itself downloads with `npx playwright install chromium` in T4.1 or T7.2; that needs no sudo.
+- [x] P6. In your own shell (these write the Windows-side az profile, outside this worktree): `az config set core.collect_telemetry=false` and `az bicep install --version v0.48.1`. Done 2026-10-20: telemetry reads `false`, and `bicep.exe --version` reports 0.48.1 (cec7951cf6). T0.5 then verifies the binary's SHA-256 read-only against the published digest.
 
 ## Tooling
 Covers the whole chain of plans (the other plans do not repeat it). Availability checks run before the first task.
