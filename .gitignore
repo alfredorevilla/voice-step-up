@@ -1,0 +1,15 @@
+bin/
+obj/
+*.user
+.vs/
+.idea/
+TestResults/
+coverage/
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+models/
+artifacts/

@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\StepUp.Core\StepUp.Core.csproj" />
+    <ProjectReference Include="..\StepUp.Infrastructure\StepUp.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

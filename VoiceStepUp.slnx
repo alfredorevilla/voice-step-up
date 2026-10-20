@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/StepUp.Api/StepUp.Api.csproj" />
+    <Project Path="src/StepUp.Core/StepUp.Core.csproj" />
+    <Project Path="src/StepUp.Infrastructure/StepUp.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/StepUp.Api.Tests/StepUp.Api.Tests.csproj" />
+    <Project Path="tests/StepUp.Core.Tests/StepUp.Core.Tests.csproj" />
+  </Folder>
+</Solution>
