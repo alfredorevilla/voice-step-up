@@ -1,0 +1,51 @@
+# Plan: voice-step-up, M5 Entra provisioning and live claims spike
+
+**Source PRD**: .claude/prds/voice-step-up.prd.md
+**Selected Milestone**: M5 Entra provisioning and live claims spike
+**Complexity**: Medium
+**Depends on**: M2; needs the M0 Pre-flight
+**Plan status**: seed split from the earlier single plan on 2026-10-20. Before executing, re-ground Patterns to Mirror and Files to Change against the code that exists (`/ecc-plan` PRD mode) and update this file.
+
+## Summary
+In-house Graph Bicep for the SPA and API app registrations, deploy and teardown scripts with tenant assertion, setup documentation, a live claims spike, and a CI Bicep build and lint job.
+
+## Patterns to Mirror
+Mirror the code written in the earlier milestones; the plan is re-grounded before execution.
+
+## Files to Change
+| Path | Action | Why |
+|---|---|---|
+| infra/entra.bicep, infra/bicepconfig.json, infra/main.bicepparam | CREATE | Entra app registrations |
+| scripts/entra-deploy.sh, scripts/entra-teardown.sh | CREATE | Deploy and teardown with tenant assertion |
+| docs/entra-setup.md | CREATE | Setup and Graph Bicep limits |
+| .github/workflows/ci.yml | UPDATE | Bicep build and lint job |
+
+## Tasks
+- **T5.1** `infra/entra.bicep`: SPA app and API app, service principals, app role `Analyst`, scope `access_as_user`, SPA pre-authorized on the API, `requestedAccessTokenVersion: 2`, fixed `uniqueName` parameters, redirect URIs as parameters, extension aliased in `infra/bicepconfig.json`. Written from Microsoft Learn and the MIT `msgraph-bicep-types` quickstart templates; the Microsoft skill is not copied. The `identifierUris` pattern (`api://<tenantId>/<name>` or `api://<appId>`) is UNVERIFIED until deployed.
+- **T5.2** Scripts: `entra-deploy.sh` (asserts tenant id before any change, strips CRLF from `az` output, writes `.env.local`), `entra-teardown.sh` (exact `uniqueName`/appId only, asks to confirm, deletes and purges `directory/deletedItems`), both with `--dry-run`.
+- **T5.3** `docs/entra-setup.md` (facts re-checked against Microsoft Learn MCP) including the Graph Bicep limits: no what-if, no deployment stacks, resource-group deletion leaves Graph objects, soft-deleted apps keep their `uniqueName`.
+- **T5.4** Live spike with you: sign in as the P3 user; inspect (redacted) access-token claims for `amr`, `auth_time`/`iat`, `roles`; test the `ngcmfa` claims challenge; record the fallback acceptance rule in ADR-0004. Record the outcome in ADR-0004 and set its status.
+- **T5.5** CI job: `az bicep build` and `az bicep lint` on the runner (no tenant, pinned `ubuntu-24.04`).
+
+## Validation
+```bash
+az bicep build --file infra/entra.bicep && az bicep lint --file infra/entra.bicep
+scripts/entra-deploy.sh --dry-run && scripts/entra-teardown.sh --dry-run
+```
+
+## Risks
+| Risk | Likelihood | Mitigation |
+|---|---|---|
+| Entra access tokens lack auth_time or the expected amr values, or the demo user has no MFA | Medium | Live spike T5.4 decides the fallback rule; P3 requires an MFA-registered user |
+| Graph Bicep needs a subscription and resource group that may not exist; the extension behaves differently; no what-if | Medium | P2 and the probe; az rest / az ad app fallback documented; CI limited to build and lint |
+| A script runs against the wrong tenant | High | Tenant assertion (M5-A3) |
+
+## Acceptance
+- [ ] M5-A1. `infra/entra.bicep` builds and lints cleanly with Bicep v0.48.1.
+- [ ] M5-A2. Deploy and teardown work against the tenant, are idempotent on re-run, and the teardown purges soft-deleted apps.
+- [ ] M5-A3. Both scripts refuse to run when the signed-in tenant id differs from `VOICE_STEPUP_TENANT`.
+- [ ] M5-A4. The live spike result (`amr`, `auth_time`, `roles`, `ngcmfa` behaviour) is recorded in ADR-0004 and matches the implemented fallback rule.
+- [ ] M5-A5. No tenant id, domain or client identifier is committed (`git grep` check).
+
+## Finish
+Use `/goal` (fix all medium and higher or blocking issues found and ensure all plan acceptance criteria items are done) or turn eq 3 (a fix loop capped at 3 turns). Then use `/code-review` (ECC's). `/goal` exists nowhere on this machine as of 2026-10-20 (no command file, skill or plugin entry), so the 3-turn fix loop is the Finish step. It is deliberately not in the Tooling table, so it cannot halt the pre-execution gate.
