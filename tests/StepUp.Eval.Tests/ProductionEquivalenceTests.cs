@@ -93,5 +93,6 @@ public class ProductionEquivalenceTests
         Primary = [.. Enumerable.Range(0, Design.Repetitions).Select(_ => (float[]?[])[.. enrollment])],
         Secondary = [.. Enumerable.Range(0, Design.Repetitions).Select(_ => (float[]?[])[.. enrollment])],
         Probes = Design.Conditions.ToDictionary(c => c, _ => (float[]?[])[.. Enumerable.Range(0, Design.ProbePool).Select(_ => (float[]?)probe)]),
+        ProbeCount = Design.ProbePool,
     };
 }

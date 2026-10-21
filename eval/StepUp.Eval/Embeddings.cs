@@ -19,6 +19,9 @@ public sealed class SpeakerEmbeddings
     /// <summary>Per condition, the embedding of each of the speaker's probes.</summary>
     public required IReadOnlyDictionary<string, float[]?[]> Probes { get; init; }
 
+    /// <summary>How many probe utterances this speaker has (at most <see cref="Design.ProbePool"/>).</summary>
+    public required int ProbeCount { get; init; }
+
     public int SegmentRedraws { get; init; }
 }
 
@@ -33,7 +36,7 @@ public sealed class SpeakerRunner(IVerifier verifier, LibriSpeech corpus, string
         var jobs = new List<(float[] Samples, Action<float[]?> Store)>();
         var primary = NewGrid(Design.Repetitions, Design.SegmentsPerEnrollment);
         var secondary = NewGrid(Design.Repetitions, Design.SegmentsPerEnrollment);
-        var probes = Design.Conditions.ToDictionary(c => c, _ => new float[]?[Design.ProbePool]);
+        var probes = Design.Conditions.ToDictionary(c => c, _ => new float[]?[probePool.Count]);
 
         for (var rep = 0; rep < Design.Repetitions; rep++)
         {
@@ -54,7 +57,7 @@ public sealed class SpeakerRunner(IVerifier verifier, LibriSpeech corpus, string
             }
         }
 
-        for (var i = 0; i < Design.ProbePool; i++)
+        for (var i = 0; i < probePool.Count; i++)
         {
             var utterance = probePool[i];
             var (clean, tries) = DrawSegment(utterance, Design.ProbeSeconds, Seeds.Rng(Design.MasterSeed, "seg", speaker, "Q", i));
@@ -93,6 +96,7 @@ public sealed class SpeakerRunner(IVerifier verifier, LibriSpeech corpus, string
             Primary = primary,
             Secondary = secondary,
             Probes = probes,
+            ProbeCount = probePool.Count,
             SegmentRedraws = redraws,
         };
     }
@@ -128,9 +132,9 @@ public sealed class SpeakerRunner(IVerifier verifier, LibriSpeech corpus, string
             decoded.AddRange(audio.Where(a => a.Length >= (int)(Design.MinUtteranceSeconds * Audio.SampleRate)));
         }
 
-        if (decoded.Count < needed)
+        if (decoded.Count < Design.EnrollmentPool + Design.MinProbePool)
         {
-            throw new InvalidOperationException($"Speaker {speaker} has only {decoded.Count} utterances of at least {Design.MinUtteranceSeconds} s; {needed} are needed.");
+            throw new InvalidOperationException($"Speaker {speaker} has only {decoded.Count} utterances of at least {Design.MinUtteranceSeconds} s; {Design.EnrollmentPool + Design.MinProbePool} are the minimum.");
         }
 
         return (decoded.Take(Design.EnrollmentPool).ToArray(), decoded.Skip(Design.EnrollmentPool).Take(Design.ProbePool).ToArray());

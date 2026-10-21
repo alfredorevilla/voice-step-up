@@ -60,7 +60,7 @@ public static class Report
         sb.AppendLine($"| Seed | {Design.MasterSeed} |");
         sb.AppendLine($"| dev-clean | {r.Dev.Speakers.Count} speakers, used only to choose the operating values |");
         sb.AppendLine($"| test-clean | {r.Test.Speakers.Count} speakers, scored once at the frozen values |");
-        sb.AppendLine($"| Per speaker | enrollment pool {Design.EnrollmentPool} utterances, probe pool {Design.ProbePool} utterances, {Design.Repetitions} enrollments of {Design.SegmentsPerEnrollment} segments |");
+        sb.AppendLine($"| Per speaker | enrollment pool {Design.EnrollmentPool} utterances, probe pool up to {Design.ProbePool} utterances (fewer for speakers with fewer long utterances, protocol amendment 1), {Design.Repetitions} enrollments of {Design.SegmentsPerEnrollment} segments |");
         sb.AppendLine($"| Segment redraws after a quality-gate refusal | dev {r.Dev.SegmentRedraws}, test {r.Test.SegmentRedraws} |");
         sb.AppendLine($"| Bootstrap | speaker-level cluster bootstrap, {r.Resamples} resamples, percentile 95% |");
         sb.AppendLine();

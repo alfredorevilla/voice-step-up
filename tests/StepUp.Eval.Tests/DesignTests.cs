@@ -15,8 +15,19 @@ public class DesignTests
     [Fact]
     public void Seeded_choices_repeat_across_calls()
     {
-        Assert.Equal(Design.ImpostorProbeIndexes(4, 2, 9), Design.ImpostorProbeIndexes(4, 2, 9));
+        Assert.Equal(Design.ImpostorProbeIndexes(4, 2, 9, 30), Design.ImpostorProbeIndexes(4, 2, 9, 30));
         Assert.Equal(Design.EnrollmentUtterances("1272", 3), Design.EnrollmentUtterances("1272", 3));
+    }
+
+    [Theory]
+    [InlineData(30)]
+    [InlineData(23)]
+    [InlineData(10)]
+    public void Impostor_probes_come_from_inside_the_other_speakers_pool(int poolSize)
+    {
+        var picked = Design.ImpostorProbeIndexes(0, 0, 1, poolSize);
+        Assert.Equal(Design.ImpostorProbesPerSpeaker, picked.Distinct().Count());
+        Assert.All(picked, i => Assert.InRange(i, 0, poolSize - 1));
     }
 
     [Fact]
@@ -51,5 +62,6 @@ public class DesignTests
         Assert.Equal(38, Design.EnrollmentPool + Design.ProbePool);
         Assert.Equal(6000, 40 * Design.Repetitions * Design.ProbePool);
         Assert.Equal(23400, 40 * Design.Repetitions * 39 * Design.ImpostorProbesPerSpeaker);
+        Assert.True(Design.MinProbePool <= Design.ProbePool);
     }
 }

@@ -35,14 +35,14 @@ public static class Scoring
                     continue;
                 }
 
-                for (var i = 0; i < Design.ProbePool; i++)
+                for (var i = 0; i < claimed.ProbeCount; i++)
                 {
                     Add(claimed, rep, claimed, i, genuine: true);
                 }
 
                 foreach (var other in speakers.Where(s => s.Index != claimed.Index))
                 {
-                    foreach (var i in Design.ImpostorProbeIndexes(claimed.Index, rep, other.Index))
+                    foreach (var i in Design.ImpostorProbeIndexes(claimed.Index, rep, other.Index, other.ProbeCount))
                     {
                         Add(claimed, rep, other, i, genuine: false);
                     }

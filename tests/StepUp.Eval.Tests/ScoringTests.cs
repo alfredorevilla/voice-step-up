@@ -8,7 +8,7 @@ public class ScoringTests
     private static float[] V(double degrees) =>
         [(float)Math.Cos(degrees * Math.PI / 180), (float)Math.Sin(degrees * Math.PI / 180)];
 
-    private static SpeakerEmbeddings Speaker(int index, double baseDegrees)
+    private static SpeakerEmbeddings Speaker(int index, double baseDegrees, int probeCount = Design.ProbePool)
     {
         float[]?[][] grid(double offset) =>
             [.. Enumerable.Range(0, Design.Repetitions).Select(_ =>
@@ -16,7 +16,7 @@ public class ScoringTests
 
         var probes = Design.Conditions.ToDictionary(
             c => c,
-            _ => (float[]?[])[.. Enumerable.Range(0, Design.ProbePool).Select(_ => (float[]?)V(baseDegrees + 5))]);
+            _ => (float[]?[])[.. Enumerable.Range(0, probeCount).Select(_ => (float[]?)V(baseDegrees + 5))]);
         return new SpeakerEmbeddings
         {
             Index = index,
@@ -24,6 +24,7 @@ public class ScoringTests
             Primary = grid(10),
             Secondary = grid(10),
             Probes = probes,
+            ProbeCount = probeCount,
         };
     }
 
@@ -61,6 +62,20 @@ public class ScoringTests
         Assert.All(trials.Where(t => t.Genuine && t.Claimed == 0), t => Assert.Equal(Math.Cos(5 * Math.PI / 180), t.Score, 5));
         // speaker 1's probes at 95 degrees against the 0-degree template: cos 95 = -0.08716
         Assert.All(trials.Where(t => !t.Genuine && t.Claimed == 0), t => Assert.Equal(Math.Cos(95 * Math.PI / 180), t.Score, 5));
+    }
+
+    [Fact]
+    public void A_speaker_with_a_smaller_probe_pool_gets_fewer_genuine_trials_and_is_sampled_inside_it()
+    {
+        var small = Speaker(0, 0, probeCount: 23);
+        var large = Speaker(1, 90);
+        var trials = Scoring.Trials([small, large], "P0");
+
+        // speaker 0: 5 enrollments x its 23 probes; speaker 1: 5 enrollments x 30 probes
+        Assert.Equal(Design.Repetitions * 23, trials.Count(t => t.Genuine && t.Claimed == 0));
+        Assert.Equal(Design.Repetitions * 30, trials.Count(t => t.Genuine && t.Claimed == 1));
+        // 3 impostor probes per enrollment from the other speaker, however large its pool
+        Assert.Equal(Design.Repetitions * Design.ImpostorProbesPerSpeaker, trials.Count(t => !t.Genuine && t.Claimed == 1));
     }
 
     [Fact]

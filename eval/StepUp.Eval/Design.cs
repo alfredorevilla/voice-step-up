@@ -5,7 +5,11 @@ public static class Design
 {
     public const int MasterSeed = 6001;
     public const int EnrollmentPool = 8;
+    /// <summary>Upper bound on a speaker's probe pool (protocol amendment 1: a speaker with fewer utterances gets a smaller pool).</summary>
     public const int ProbePool = 30;
+
+    /// <summary>A speaker with fewer probe utterances than this would be excluded.</summary>
+    public const int MinProbePool = 10;
     public const int Repetitions = 5;
     public const int SegmentsPerEnrollment = 3;
     public const int ImpostorProbesPerSpeaker = 3;
@@ -45,8 +49,8 @@ public static class Design
     }
 
     /// <summary>The probes of speaker <paramref name="other"/> used against enrollment (<paramref name="claimed"/>, <paramref name="rep"/>). Independent of the condition, so conditions are paired.</summary>
-    public static int[] ImpostorProbeIndexes(int claimed, int rep, int other) =>
-        PickDistinct(Seeds.Rng(MasterSeed, "impostor", claimed, rep, other), ProbePool, ImpostorProbesPerSpeaker);
+    public static int[] ImpostorProbeIndexes(int claimed, int rep, int other, int otherProbeCount) =>
+        PickDistinct(Seeds.Rng(MasterSeed, "impostor", claimed, rep, other), otherProbeCount, ImpostorProbesPerSpeaker);
 
     /// <summary>The enrollment-pool utterances behind repetition <paramref name="rep"/> of a speaker.</summary>
     public static int[] EnrollmentUtterances(string speaker, int rep) =>

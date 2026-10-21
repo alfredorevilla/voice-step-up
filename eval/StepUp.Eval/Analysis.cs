@@ -117,7 +117,7 @@ public static class Analysis
         var (eer, _) = Metrics.Eer(genuine, impostor);
         var eerCi = Bootstrap(bySpeaker, (g, i) => Metrics.Eer(g, i).Eer, resamples, 1);
 
-        var probesAttempted = set.Speakers.Count * Design.ProbePool;
+        var probesAttempted = set.Speakers.Sum(s => s.ProbeCount);
         var probesMissing = set.Speakers.Sum(s => s.Probes[condition].Count(e => e is null));
         var enrollments = set.Speakers.Sum(s => s.Primary.Length);
         var enrollmentsMissing = set.Speakers.Sum(s => Scoring.Templates(s, condition).Count(t => t is null));
