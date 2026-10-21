@@ -34,6 +34,11 @@ public static class Metrics
     /// <summary>The point where FAR and FRR are closest; reported as their mean.</summary>
     public static (double Eer, double Threshold) Eer(IReadOnlyList<double> genuine, IReadOnlyList<double> impostor)
     {
+        if (genuine.Count == 0 || impostor.Count == 0)
+        {
+            return (double.NaN, double.NaN);
+        }
+
         var g = genuine.OrderBy(s => s).ToArray();
         var i = impostor.OrderBy(s => s).ToArray();
         var candidates = g.Concat(i).Distinct().OrderBy(s => s).ToList();
@@ -101,6 +106,11 @@ public static class Metrics
         int resamples,
         int seed)
     {
+        if (speakers.Count == 0)
+        {
+            return (double.NaN, double.NaN);
+        }
+
         var rng = new Random(seed);
         var values = new List<double>(resamples);
         for (var b = 0; b < resamples; b++)
@@ -121,7 +131,7 @@ public static class Metrics
             }
         }
 
-        return (Percentile(values, 0.025), Percentile(values, 0.975));
+        return values.Count == 0 ? (double.NaN, double.NaN) : (Percentile(values, 0.025), Percentile(values, 0.975));
     }
 
     private static int LowerBound(double[] sorted, double value)

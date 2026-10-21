@@ -45,4 +45,21 @@ public class FreezeTests
         var values = Enumerable.Range(0, 101).Select(n => 0.5 + (n / 1000.0)).ToArray();
         Assert.Equal(0.50, Freeze.ConsistencyFloor(values), 9);
     }
+
+    [Fact]
+    public void A_condition_with_no_scores_does_not_block_cohort_normalisation()
+    {
+        // P3 is refused entirely by the quality gate, so its EER is NaN on both sides: it is left out of the check
+        var raw = new Dictionary<string, double> { ["P0"] = 0.10, ["P1"] = 0.12, ["P2"] = 0.20, ["P3"] = double.NaN, ["P4"] = 0.15 };
+        var norm = new Dictionary<string, double> { ["P0"] = 0.05, ["P1"] = 0.10, ["P2"] = 0.15, ["P3"] = double.NaN, ["P4"] = 0.10 };
+        Assert.True(Freeze.CohortAdopted(raw, norm));
+    }
+
+    [Fact]
+    public void Cohort_normalisation_needs_a_p0_result()
+    {
+        var raw = new Dictionary<string, double> { ["P0"] = double.NaN, ["P1"] = 0.12, ["P2"] = 0.20, ["P3"] = 0.3, ["P4"] = 0.15 };
+        var norm = new Dictionary<string, double> { ["P0"] = double.NaN, ["P1"] = 0.10, ["P2"] = 0.15, ["P3"] = 0.2, ["P4"] = 0.10 };
+        Assert.False(Freeze.CohortAdopted(raw, norm));
+    }
 }

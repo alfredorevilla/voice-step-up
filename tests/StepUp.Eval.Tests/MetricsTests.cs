@@ -127,4 +127,20 @@ public class MetricsTests
         // speaker 1 alone has FRR 1.0, the others 0.0; the 6-genuine pool gives 2/6 at most 1/3 per draw of speaker 1
         Assert.True(first.Hi >= 1.0 / 3.0 - 1e-9);
     }
+
+    [Fact]
+    public void Eer_of_a_condition_with_no_trials_is_not_a_number()
+    {
+        var (eer, threshold) = Metrics.Eer([], []);
+        Assert.True(double.IsNaN(eer));
+        Assert.True(double.IsNaN(threshold));
+    }
+
+    [Fact]
+    public void Cluster_bootstrap_of_no_speakers_is_not_a_number()
+    {
+        var (lo, hi) = Metrics.ClusterBootstrap([], (g, i) => 0.0, 10, 1);
+        Assert.True(double.IsNaN(lo));
+        Assert.True(double.IsNaN(hi));
+    }
 }

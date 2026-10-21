@@ -30,11 +30,12 @@ public static class Freeze
     /// <summary>R5: P0 EER at least 20% lower and no EER higher in P1 to P4.</summary>
     public static bool CohortAdopted(IReadOnlyDictionary<string, double> rawEer, IReadOnlyDictionary<string, double> cohortEer)
     {
-        if (cohortEer["P0"] > rawEer["P0"] * (1.0 - CohortMinRelativeGain) + 1e-12)
+        if (double.IsNaN(rawEer["P0"]) || double.IsNaN(cohortEer["P0"]) || cohortEer["P0"] > rawEer["P0"] * (1.0 - CohortMinRelativeGain) + 1e-12)
         {
             return false;
         }
 
-        return DegradedConditions.All(c => cohortEer[c] <= rawEer[c] + 1e-12);
+        // A condition without scores (for example every probe refused by the quality gate) cannot get worse.
+        return DegradedConditions.All(c => double.IsNaN(rawEer[c]) || double.IsNaN(cohortEer[c]) || cohortEer[c] <= rawEer[c] + 1e-12);
     }
 }
