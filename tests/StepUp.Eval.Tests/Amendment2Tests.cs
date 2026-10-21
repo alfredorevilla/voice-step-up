@@ -219,6 +219,17 @@ public class Amendment2Tests
     }
 
     [Fact]
+    public void Reproduction_reads_a_missing_score_written_as_n_a_as_a_match_and_still_flags_a_real_number()
+    {
+        var summaries = new Dictionary<string, ConditionSummary> { ["P3"] = Summary("P3", double.NaN, double.NaN, double.NaN, 5935, 23400) };
+        var unscored = Header + "\n" + Row("dev-clean", "P3", "default", "n/a", "n/a", "n/a") + "\n";
+        var scored = Header + "\n" + Row("dev-clean", "P3", "default", "0.006752", "n/a", "n/a") + "\n";
+
+        Assert.Contains("reproduce the first report exactly", Reproduction.Compare(unscored, summaries, summaries));
+        Assert.Contains("FAR: 0.006752 before, n/a now", Reproduction.Compare(scored, summaries, summaries));
+    }
+
+    [Fact]
     public void Reproduction_ignores_new_conditions_and_says_so_when_there_is_no_earlier_file()
     {
         var summaries = new Dictionary<string, ConditionSummary>

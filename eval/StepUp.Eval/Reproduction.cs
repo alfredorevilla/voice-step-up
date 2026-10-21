@@ -43,7 +43,7 @@ public static class Reproduction
             var now = new[]
             {
                 point.Threshold.ToString("F2", CultureInfo.InvariantCulture), s.GenuineTrials.ToString(CultureInfo.InvariantCulture), s.ImpostorTrials.ToString(CultureInfo.InvariantCulture),
-                point.Far.ToString("F6", CultureInfo.InvariantCulture), point.Frr.ToString("F6", CultureInfo.InvariantCulture), s.Eer.ToString("F6", CultureInfo.InvariantCulture),
+                Score(point.Far), Score(point.Frr), Score(s.Eer),
             };
             var before = new[] { row[3], row[4], row[5], row[8], row[13], row[18] };
             var names = new[] { "threshold", "genuine trials", "impostor trials", "FAR", "FRR", "EER" };
@@ -56,6 +56,9 @@ public static class Reproduction
                 }
             }
         }
+
+        // The CSV writer prints a condition with no scores as "n/a", so compare in that spelling.
+        static string Score(double v) => double.IsNaN(v) ? "n/a" : v.ToString("F6", CultureInfo.InvariantCulture);
 
         return differences.Count == 0
             ? $"P0 to P4 and S0 reproduce the first report exactly ({compared} values compared: thresholds, trial counts, FAR, FRR and EER, dev-clean and test-clean)."
