@@ -73,6 +73,33 @@ describe("PKCE client", () => {
     expect(store.get("pkce.returnTo")).toBe("stepup");
   });
 
+  it("keeps the signed-in identity on the fresh multi-factor redirect, across a page load", async () => {
+    // Sign in as bob: the page unloads at the authority and a new page loads with ?code=…, sharing sessionStorage only.
+    const first = setup();
+    await createPkceClient(config, first.deps).signIn({ loginHint: "bob" });
+    const state = new URL(first.assigned[0]).searchParams.get("state")!;
+    const second = setup(`?code=abc&state=${state}`);
+    const reloaded = createPkceClient(config, { ...second.deps, storage: first.deps.storage });
+    await reloaded.init();
+
+    await reloaded.getAccessToken({ freshMfa: true, returnTo: "enroll" });
+
+    const url = new URL(second.assigned[0]);
+    expect(url.searchParams.get("login_hint")).toBe("bob");
+    expect(url.searchParams.get("claims")).toBe(FRESH_MFA_CLAIMS);
+  });
+
+  it("forgets the identity hint on sign-out", async () => {
+    const first = setup();
+    const client = createPkceClient(config, first.deps);
+    await client.signIn({ loginHint: "bob" });
+    client.signOut();
+
+    await client.getAccessToken({ freshMfa: true });
+
+    expect(new URL(first.assigned[1]).searchParams.get("login_hint")).toBeNull();
+  });
+
   it("exchanges the returned code with the matching verifier and no secret", async () => {
     const first = setup();
     await createPkceClient(config, first.deps).signIn();

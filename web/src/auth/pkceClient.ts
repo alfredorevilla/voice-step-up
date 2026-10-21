@@ -22,7 +22,9 @@ interface Discovery {
   token_endpoint: string;
 }
 
-const KEY = { verifier: "pkce.verifier", state: "pkce.state", returnTo: "pkce.returnTo" } as const;
+// `loginHint` names who signed in (an identity routing value, not a credential). It outlives the redirect so the
+// fresh multi-factor trip asks the authority for the same person, and is dropped on sign-out.
+const KEY = { verifier: "pkce.verifier", state: "pkce.state", returnTo: "pkce.returnTo", loginHint: "pkce.loginHint" } as const;
 
 function base64Url(bytes: Uint8Array): string {
   let binary = "";
@@ -72,7 +74,9 @@ export function createPkceClient(
       code_challenge: challenge,
       code_challenge_method: "S256",
     });
-    if (options.loginHint) query.set("login_hint", options.loginHint);
+    if (options.loginHint) deps.storage.setItem(KEY.loginHint, options.loginHint);
+    const hint = options.loginHint ?? deps.storage.getItem(KEY.loginHint);
+    if (hint) query.set("login_hint", hint);
     if (options.freshMfa) query.set("claims", FRESH_MFA_CLAIMS);
     deps.location.assign(`${authorization_endpoint}?${query.toString()}`);
   }
@@ -132,6 +136,7 @@ export function createPkceClient(
 
     signOut() {
       accessToken = null;
+      deps.storage.removeItem(KEY.loginHint);
     },
   };
 }
