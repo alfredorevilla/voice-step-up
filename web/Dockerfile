@@ -10,7 +10,7 @@ COPY . .
 ARG VITE_API_BASE=http://localhost:5000
 ARG VITE_AUTHORITY=http://localhost:5100
 ENV VITE_API_BASE=$VITE_API_BASE VITE_AUTHORITY=$VITE_AUTHORITY
-RUN npm run build
+RUN npm run build && chown -R node:node /web
 USER node
 EXPOSE 5173
 CMD ["npx", "vite", "preview", "--host", "0.0.0.0"]
