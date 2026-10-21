@@ -1,0 +1,23 @@
+voice-step-up
+Copyright (c) 2026 Alfredo Revilla. MIT licence, see LICENSE.
+
+Third-party models and native libraries used at run time. They are fetched by scripts/fetch-models.sh or restored from NuGet and are not committed.
+
+sherpa-onnx (https://github.com/k2-fsa/sherpa-onnx)
+  Apache License 2.0. Runs the speaker and speech models. NuGet package org.k2fsa.sherpa.onnx.
+
+ONNX Runtime (https://github.com/microsoft/onnxruntime)
+  MIT License, Copyright (c) Microsoft Corporation. Native library shipped inside the sherpa-onnx package.
+
+WeSpeaker ResNet34-LM speaker embedding model (wespeaker_en_voxceleb_resnet34_LM.onnx)
+  Creative Commons Attribution 4.0 International. WeSpeaker states that its pretrained models follow the licence of
+  their training data; the VoxCeleb models follow CC BY 4.0
+  (https://github.com/wenet-e2e/wespeaker/blob/master/docs/pretrained.md). Model by the WeSpeaker authors, trained on VoxCeleb.
+
+Whisper base.en speech recognition model (OpenAI), as converted for sherpa-onnx
+  MIT License, Copyright (c) 2022 OpenAI (https://github.com/openai/whisper/blob/main/LICENSE).
+
+Test fixtures only (tests/StepUp.Verifier.Tests/Audio/), not part of the service:
+Piper en_US-libritts_r-medium voice model, trained on LibriTTS-R
+  Creative Commons Attribution 4.0 International (model card shipped with the model; dataset http://www.openslr.org/141/).
+  The eight WAV fixtures are synthetic speech produced with this model.

@@ -71,3 +71,24 @@ One `SpeakerEmbeddingExtractor` and one `OfflineRecognizer` for the process, cre
 ## 8. Startup checks
 
 At startup the verifier reads `models/models.lock`, hashes each model file it uses and refuses to start on a missing file or a hash mismatch. Models are fetched by `scripts/fetch-models.sh`, never committed.
+
+## 9. Measured latency (M3-A1)
+
+Same 40 synthetic four-word phrases and the same program on the host and in a container (`mcr.microsoft.com/dotnet/sdk:10.0.401`, Ubuntu 24.04, same machine, 4 threads, int8 models). Time per verification = transcript plus embedding, after a warm-up call.
+
+| Where | p50 | p95 | max |
+|---|---|---|---|
+| WSL2 host | 319 ms | 411 ms | 455 ms |
+| Container | 322 ms | 424 ms | 437 ms |
+
+The Api's fail-closed verifier timeout is 3 s. The service runs the models with 2 threads by default and at most 2 analyses at once; with more load a request waits for a slot and the Api's gate answers `RateLimited` when it cannot enter in time.
+
+## 10. Other verifier modes and the container
+
+- `Verifier:Mode=Http` calls a remote verifier: `POST v1/analyze`, body = the WAV, header `X-Expected-Phrase` (lowercase words only), optional `X-Verifier-Key`, answer `{ modelId, reject, embedding, transcript }`. Any transport error, non-success status, model id mismatch or malformed answer throws, which the Api turns into the fallback. The base address must be loopback, a compose service name, or https. The key comes from `Verifier__Http__ApiKey` in the environment. `StubVerifierService` in the tests is the reference.
+- Container: `Dockerfile` (multi-stage; models fetched and checked at build time; runs as the non-root `app` user on the glibc `aspnet:10.0` image, which is Ubuntu 24.04), `compose.yaml` with a health check on `/healthz`. The sherpa-onnx and ONNX Runtime native libraries load at startup because the verifier is created then.
+- On a machine where `dotnet` prints nothing inside `docker build` (seen on WSL2 with the default builder), use a `docker-container` builder: `docker buildx create --use --driver docker-container`.
+
+## 11. Tests
+
+Model tests (`[Trait("Category","Model")]`) run on the fetched models: `scripts/fetch-models.sh` then `dotnet test -- --filter-trait "Category=Model"`. CI excludes them from the build job and covers the models through the container job. Test speech is eight committed synthetic WAV fixtures (`tests/StepUp.Verifier.Tests/Audio/README.md`), because the text-to-speech output differs on every run and made the first version of these tests flaky. One API-level test (`SherpaApiModelTests`) synthesises speech for the random phrases with the test models (`--test`) and re-takes each clip until the real verifier hears it.
