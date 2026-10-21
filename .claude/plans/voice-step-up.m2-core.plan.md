@@ -35,12 +35,21 @@ Re-grounded on 2026-10-21 against the M0 code (a `StepUp.Api` health endpoint, `
 A fork ran this milestone and could not convene a panel; each decision below is recorded for the next review.
 - Payout assertions are bound to `amount` and `to` at verify time (`ph`); a mismatching presentation is refused without consuming the assertion.
 - A deleted voiceprint answers `NoVoiceprint` before `ConsentMissing`, because `DELETE /api/voiceprint` also withdraws consent.
-- Entra mode adds a `tid` equals configured-tenant check to the user policy on top of Identity.Web's issuer validation.
+- Entra mode adds a `tid` equals configured-tenant check to the user policy on top of Identity.Web's issuer validation, and refuses to start unless `AzureAd:TenantId` is a GUID, so the check cannot switch itself off (review fix 3).
 - The Entra-mode unit tests stub Identity.Web's issuer validator (it fetches Entra metadata over the network); the real validator is exercised in M5 T5.4.
 - Test configuration uses `UseSetting`, not `AddInMemoryCollection`, because `Program.cs` reads configuration before the factory's overrides apply.
 - A patched `System.Security.Cryptography.Pkcs` is pinned centrally (transitive pinning) rather than suppressing NU1902 and NU1903.
 - Transport: audio is the raw `audio/wav` body with identifiers in the query string, which avoids multipart and antiforgery handling.
-- Known limits: expired challenges, enrollments and used assertions are not purged yet; parallel verifications can overrun the lockout by at most the open-challenge cap (3); the Data Protection key ring and the signing key share a directory without OS-level encryption.
+- Known limits: expired challenges and used assertions are not purged yet (enrollments are: on read and on every `start`); parallel verifications can overrun the lockout by at most the open-challenge cap (3); the Data Protection key ring and the signing key share a directory without OS-level encryption.
+
+## Review fix turn 1 (independent `/code-review`, 7 medium findings, all applied)
+1. Consent is checked in `sample` and `complete` (`ConsentMissing`); withdrawal deletes the user's in-progress enrollments; expired enrollments are deleted on read and on every `start`.
+2. Withdrawal re-keys the user's attempts to a random token per row (`IAttemptLog.PseudonymiseAsync`), the single sanctioned exception to append-only; scores stay for the analyst.
+3. Entra mode refuses to start without a GUID `AzureAd:TenantId`; `tid` is always enforced.
+4. Every refusal is logged as `Refused` with its reason (no voiceprint, no consent, locked out, expired or used challenge, missing or bad step-up); a failed assertion gets `AssertionReplayed` or `AssertionInvalid` in the log only. `Refused` never feeds the lockout counter.
+5. A successful fallback resets the lockout counter, matching architecture section 4 and TM-012; the store test now asserts it.
+6. Enrollment phrases use a separate word list that shares no word with the challenge list (test).
+7. The HS256, unknown-kid and Entra-token assertion tests now fail only on their own control. Checked by removing each control (`ValidAlgorithms`, `TryAllIssuerSigningKeys`, `ValidTypes`, `ValidateAudience`, `ValidateIssuer`) and watching the matching test go red. The uniformity test compares the two failure bodies; an Entra-mode variant of `Bearer_RejectsStepUpAssertion` exists.
 
 ## Validation
 ```bash

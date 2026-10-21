@@ -76,7 +76,7 @@ sequenceDiagram
   A-->>U: enrolled
 ```
 
-Without a consent record the API answers `ConsentMissing`. Starting or replacing an enrollment needs a bearer token with fresh MFA under the same rule as the fallback (section 2.3), otherwise `FreshMfaRequired`. Replacing a voiceprint is delete plus enroll; there is no adaptive template update (poisoning risk), so a user whose voice changed re-enrolls.
+Without a consent record the API answers `ConsentMissing` on `start`, `sample` and `complete`, so consent withdrawn mid-enrollment stores nothing. Enrollment phrases come from a separate word list that shares no word with the challenge list, so enrollment audio gives an attacker none of the words a later challenge asks for. Starting or replacing an enrollment needs a bearer token with fresh MFA under the same rule as the fallback (section 2.3), otherwise `FreshMfaRequired`. Replacing a voiceprint is delete plus enroll; there is no adaptive template update (poisoning risk), so a user whose voice changed re-enrolls.
 
 ### 2.2 Step-up pass
 
@@ -139,7 +139,7 @@ sequenceDiagram
   Note over A,S: later step-up attempts get NoVoiceprint and the fallback is offered
 ```
 
-Withdrawal is one call, as easy as consent. The consent record stays as evidence; the voiceprint does not. Attempts are pseudonymised, not deleted. An assertion issued before deletion stays valid for up to 5 minutes; that is stated as a limit.
+Withdrawal is one call, as easy as consent. The consent record stays as evidence; the voiceprint does not. Withdrawal also deletes the user's in-progress enrollments (their sample embeddings); expired enrollments are deleted when touched and on every `start`. Attempts are pseudonymised, not deleted: each of the user's rows gets its own random token in place of the `UserKey`, so scores stay for the analyst but cannot be linked to the person. That re-key is the only change an attempt row ever gets. An assertion issued before deletion stays valid for up to 5 minutes; that is stated as a limit.
 
 ## 3. Data model
 
@@ -182,11 +182,11 @@ All endpoints need `Authorization: Bearer <access token>` unless stated. Errors 
 | `POST /api/payouts` | user + step-up | `{ amount, to }` and `X-StepUp-Assertion` (bound to the same amount and payee) or a fresh-MFA bearer | 200 | 403 `StepUpRequired` |
 | `GET /healthz` | none | none | 200 `{ status: "ok" }` | none |
 
-Reason codes: `Muted`, `TooShort`, `Noisy` (also covers clipping), `PhraseMismatch`, `BelowThreshold`, `Timeout`, `VerifierError`, `NoVoiceprint`, `ConsentMissing`, `ChallengeExpired`, `ChallengeConsumed`, `RateLimited`, `StepUpRequired`, `FreshMfaRequired`, `ReEnrollRequired`, `VerificationFailed`. The client sees only `VerificationFailed` for `PhraseMismatch` and `BelowThreshold`; both checks always run, so timing does not tell them apart. The detail goes to the attempt log.
+Reason codes: `Muted`, `TooShort`, `Noisy` (also covers clipping), `PhraseMismatch`, `BelowThreshold`, `Timeout`, `VerifierError`, `NoVoiceprint`, `ConsentMissing`, `ChallengeExpired`, `ChallengeConsumed`, `RateLimited`, `StepUpRequired`, `FreshMfaRequired`, `ReEnrollRequired`, `VerificationFailed`. Two more exist for the attempt log only and are never sent: `AssertionReplayed` and `AssertionInvalid`. The client sees only `VerificationFailed` for `PhraseMismatch` and `BelowThreshold`; both checks always run, so timing does not tell them apart. The detail goes to the attempt log.
 
 Step-up assertion (D5, ADR-0005): JWT, header `typ` = `stepup+jwt`, `alg` = ES256, `kid`; claims `iss` = this service, `aud` = the service's step-up audience (never the Entra App ID URI), `sub` = `oid`, `tid`, `amr: ["vbm"]`, `act` = action, optional `ph` = hash of `amount` and `to`, `jti`, `iat`, `exp` (5 minutes). The handler uses only the service's own key set, accepts only ES256, and rejects `none`, HS256 and unknown `kid`. It is single use (`UsedAssertions`) and valid only with a bearer for the same `oid` and `tid`. The signing key is generated at first start, protected with Data Protection in the key-ring volume, never in the repo or image; rotation is manual (a demo limit).
 
-Attempt limits (NIST SP 800-63B-4 section 3.2.3.3 for a system without presentation attack detection, configurable): after 5 consecutive failed voice attempts a delay of at least 30 s; after 50, voice is disabled for that user and the fallback is offered. The counter resets on any successful step-up. A disabled user is re-enabled by re-enrolling with fresh MFA. A quality rejection does not consume the challenge but counts toward the general rate limit. Per-user rate limits apply to `sample`, `challenge` and `verify`; open challenges per user are capped; a global verifier concurrency limit answers 429. A per-IP limit is secondary only.
+Attempt limits (NIST SP 800-63B-4 section 3.2.3.3 for a system without presentation attack detection, configurable): after 5 consecutive failed voice attempts a delay of at least 30 s; after 50, voice is disabled for that user and the fallback is offered. The counter resets on any successful step-up, a voice pass or a fresh-MFA fallback pass. Only decided voice attempts count; a request turned away before a decision (no voiceprint, no consent, locked out, expired or used challenge, missing or bad assertion) is logged as `Refused` with its reason and never feeds the counter. A disabled user is re-enabled by re-enrolling with fresh MFA. A quality rejection does not consume the challenge but counts toward the general rate limit. Per-user rate limits apply to `sample`, `challenge` and `verify`; open challenges per user are capped; a global verifier concurrency limit answers 429. A per-IP limit is secondary only.
 
 Settled in M2: the verify call for `payout` carries `amount` and `to`, so the issued assertion has `ph` and cannot pay anything else. A presented assertion that does not match is refused without being consumed, so the user who stepped up can still use it for the matching request. Parallel verifications are limited only by the open-challenge cap (3), so a lockout can be overrun by at most that many in-flight attempts; this is a stated limit.
 
@@ -194,7 +194,7 @@ Settled in M2: the verify call for `payout` carries `amount` and `to`, so the is
 
 `IVerifier` takes a WAV and the expected phrase and returns the probe embedding, the transcript and a reason code. The Api computes the cosine score against the stored embedding (D3). The default `Sherpa` implementation runs in-process (D1): an offline ASR recognizer checks the spoken phrase (D2) and a WeSpeaker model gives the embedding. `HttpVerifier` shows the swap to an out-of-process verifier.
 
-The random phrase plus the ASR check gives replay resistance against re-submitting a whole earlier recording. This is not liveness and not presentation attack detection. Two attacks are not stopped: words spliced from recordings of the victim saying each word (phrases come from a fixed word list; enrollment phrases and past attempts are a source), and real-time voice conversion or a text-to-speech clone that reads the phrase. The 60 s window is configurable; shortening it would not stop either attack. These are stated limits.
+The random phrase plus the ASR check gives replay resistance against re-submitting a whole earlier recording. This is not liveness and not presentation attack detection. Two attacks are not stopped: words spliced from recordings of the victim saying each word (phrases come from a fixed word list; past attempts are a source; enrollment phrases are not, because they use a separate word list), and real-time voice conversion or a text-to-speech clone that reads the phrase. The 60 s window is configurable; shortening it would not stop either attack. These are stated limits.
 
 Quality gates have numeric values in `docs/design/verifier.md` (M3). `TooShort` measures net speech after voice activity detection, not file length. Browser capture sets `echoCancellation`, `noiseSuppression` and `autoGainControl` to false and resamples with a low-pass filter.
 
