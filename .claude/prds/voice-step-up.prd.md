@@ -68,20 +68,20 @@ We'll know we're right when a reviewer can run it with one command, read measure
 
 | # | Milestone | Outcome | Depends on | Status | Plan |
 |---|---|---|---|---|---|
-| M0 | Foundation and probe | A buildable, tested, CI-checked repo, and a recorded read-only check of what the tenant allows. | none | in-progress | [plan](../plans/voice-step-up.m0-foundation.plan.md) |
+| M0 | Foundation and probe | A buildable, tested, CI-checked repo, and a recorded read-only check of what the tenant allows. | none | complete | [plan](../plans/voice-step-up.m0-foundation.plan.md) |
 | M1 | Design: architecture, ADRs and design-level threat model | A reviewed architecture, decision records and design-level threat model that the parallel milestones build against. | none (runs alongside M0) | complete | [plan](../plans/voice-step-up.m1-design.plan.md) |
 | M2 | Core domain, policy and API (fake verifier) | Step-up policy, single-use challenges, the signed vbm assertion, consent, deletion and the analyst log work end to end with a fake verifier. | M0, M1 | complete | [plan](../plans/voice-step-up.m2-core.plan.md) |
 | M3 | Real verifier and audio pipeline | Real speaker verification on CPU with phrase liveness and quality gates, running in a container. | M2 | complete | [plan](../plans/voice-step-up.m3-verifier.plan.md) |
 | M4 | SPA | A user can sign in, consent, enroll and step up from the browser, and the analyst can see attempts. | M2 | complete | [plan](../plans/voice-step-up.m4-spa.plan.md) |
-| M5 | Entra provisioning and live claims spike | Real Entra sign-in is provisioned and torn down by script, and the fallback acceptance rule is confirmed on the live tenant. | M2; needs the M0 Pre-flight | in-progress | [plan](../plans/voice-step-up.m5-entra.plan.md) |
+| M5 | Entra provisioning and live claims spike | Real Entra sign-in is provisioned and torn down by script, and the fallback acceptance rule is confirmed on the live tenant. | M2; needs the M0 Pre-flight | complete | [plan](../plans/voice-step-up.m5-entra.plan.md) |
 | M6 | FAR/FRR evaluation | False-accept and false-reject rates are reported over a public dataset, with limits stated. | M3 | complete | [plan](../plans/voice-step-up.m6-evaluation.plan.md) |
-| M7 | Edge cases and end-to-end tests | Every spec edge case is covered by a test that fails when the behaviour is removed, and the main flows run end to end in CI. | M3, M4, M5, M6 | in-progress | [plan](../plans/voice-step-up.m7-e2e.plan.md) |
-| M8 | Docs, threat model refresh and one-command demo | A reviewer can clone the repo, run one command, and read the architecture, threat model, results and honest limits. | M7 | in-progress | [plan](../plans/voice-step-up.m8-docs-demo.plan.md) |
+| M7 | Edge cases and end-to-end tests | Every spec edge case is covered by a test that fails when the behaviour is removed, and the main flows run end to end in CI. | M3, M4, M5, M6 | complete | [plan](../plans/voice-step-up.m7-e2e.plan.md) |
+| M8 | Docs, threat model refresh and one-command demo | A reviewer can clone the repo, run one command, and read the architecture, threat model, results and honest limits. | M7 | complete | [plan](../plans/voice-step-up.m8-docs-demo.plan.md) |
 
 ## Open Questions
-- [ ] Is a subscription available in the work tenant, and can the user register apps there? (answered by the M0 probe)
-- [ ] Do Entra access tokens carry the expected `amr` and `auth_time` for the fallback rule? (answered by the live Entra spike)
-- [ ] Is the Entra external-MFA option worth a separate plan later?
+- [x] Is a subscription available in the work tenant, and can the user register apps there? Answered: yes. M0 P2 chose the subscription and `rg-voice-step-up`, and the user confirmed on 2026-10-20 they can register apps (M0 P4 not needed).
+- [x] Do Entra access tokens carry the expected `amr` and `auth_time` for the fallback rule? Answered: yes, for a TOTP user the token carries `mfa` and `totp` (not `ngcmfa`) plus `auth_time`; the rule accepts `mfa` (ADR-0004, live spike).
+- [x] Is the Entra external-MFA option worth a separate plan later? Answered for now by ADR-0008: documented, not built; a separate plan only if it is pursued (licensing in the tenant is unverified).
 
 ## Risks
 | Risk | Likelihood | Impact | Mitigation |
@@ -106,10 +106,10 @@ Every item below must be checked. The text of each item lives in its milestone p
 - [x] M7-A2 (e2e job green in CI after a push)
 - [x] M8-A1, M8-A2, M8-A3, M8-A5, M8-A6
 - [x] M8-A4 (all CI jobs green after a push)
-- [ ] Project: all nine milestones are complete.
-- [ ] Project: every validation command in the plans passes.
-- [ ] Project: no secret, tenant identifier or raw audio is committed, history included.
-- [ ] Spec "done when": one command runs it (M8-A1); false-accept and false-reject rates are reported over a small scripted set (M6-A2); the README has the threat model and honest limits (M8-A2, M8-A3); tests cover the flows and edge cases and run in CI (M7-A1, M7-A2, M8-A4).
+- [x] Project: all nine milestones are complete. (2026-10-21: all nine plans have 0 unticked boxes; the 48 acceptance ids in the plans equal the 48 in this list.)
+- [x] Project: every validation command in the plans passes. (2026-10-21, run locally: `dotnet build` 0 errors; full `dotnet test` incl. model tests 393 total, 392 passed, 1 skipped, 0 failed; ADR and decision-map greps; `scripts/fetch-models.sh` verified; web lint, typecheck, 68 tests, build; Playwright 5 of 5; compose demo plus `demo-smoke.mjs`; `entra-deploy.sh --dry-run`, `entra-teardown.sh --dry-run`, `probe-tenant.sh` PASS. CI run on PR #1 green for actionlint, bicep build and lint, build-test, demo, e2e, web. Not run: `scripts/eval.sh` (hours of CPU; evidence is `docs/eval-report.md`, harness tests ran under `dotnet test`) and a plain `docker build .` (the default builder cannot run dotnet on this machine; the compose build on the isolated `stepup-bk` builder covers it).)
+- [x] Project: no secret, tenant identifier or raw audio is committed, history included. (2026-10-21 scan of the tracked tree and every commit of the pushed `feat/voice-step-up`: 0 hits for the tenant, subscription and client ids in `.env.local` and the two ids scrubbed earlier; 0 for `onmicrosoft`; 0 private-key markers; 0 personal-email addresses in file contents or patches. Qualifications: (a) 8 synthetic text-to-speech `.wav` test fixtures, 328 KB, documented in `tests/StepUp.Verifier.Tests/Audio/README.md` as "not recordings of any person"; no recording of a real person is committed. (b) Two history commits (03bca5f, 0581036) name the private-work GitHub account in a runbook sentence; it is removed from the tree. (c) The root commit on `origin/main` shows the repository owner's personal email as its author address. (d) The two non-zero GUIDs in `infra/entra.bicep` are the API app's own scope id and app-role id, not tenant ids.)
+- [x] Spec "done when": one command runs it (M8-A1); false-accept and false-reject rates are reported over a small scripted set (M6-A2); the README has the threat model and honest limits (M8-A2, M8-A3); tests cover the flows and edge cases and run in CI (M7-A1, M7-A2, M8-A4). (2026-10-21: M8-A1, M6-A2, M8-A2, M8-A3, M7-A1, M7-A2 and M8-A4 are each ticked in their plans with evidence; CI run on PR #1 green.)
 
 ## Finish
 Every plan ends with: use `/goal` (fix all medium and higher or blocking issues found and ensure all plan acceptance criteria items are done) or turn eq 3 (a fix loop capped at 3 turns), then use `/code-review` (ECC's). `/goal` is not available on this machine, so the 3-turn fix loop applies.
