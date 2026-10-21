@@ -1,22 +1,22 @@
-# Threat model (v0, design level)
+# Threat model (v1, design level)
 
-Evidence anchor: `docs/architecture.md` (sections cited as A§n) and `docs/adr/`. No code exists yet, so "existing controls" are design commitments, not implemented behavior. M8 refreshes this file with code evidence. Every threat maps to an invariant and a named test in the milestone that builds the behavior.
+Evidence anchor: `docs/architecture.md` (sections cited as A§n) and `docs/adr/`. No code exists yet, so "existing controls" are design commitments, not implemented behavior. M8 refreshes this file with code evidence. Every threat maps to an invariant and a named test in the milestone that builds the behavior. v1 follows the M1 T1.4 panel review.
 
 ## Executive summary
 
-The main risks are spoofing the voice factor (replay, synthetic or cloned voice), weakening or bypassing the step-up (forged assertion, fallback downgrade, threshold tampering), and handling biometric data (embeddings, consent, audio leakage). Replay is addressed by a single-use random phrase plus an ASR check. Cloned voice that reads the phrase has no control; this is a stated limit. NIST SP 800-63B-4 says voice comparison SHALL NOT be used as a biometric authenticator, so this project is a demonstrator, not a conformant authenticator.
+The main risks are spoofing the voice factor, weakening or bypassing the step-up, and handling biometric data. Replay of a whole earlier recording is addressed by a single-use random phrase plus an ASR check, but that control is pending the ASR spike (T3.1). Two attacks have no control and are stated limits: words spliced from recordings of the victim, and a cloned or converted voice that reads the phrase. The fallback rule depends on Entra claims behavior that is UNVERIFIED until the live spike (M5 T5.4). NIST SP 800-63B-4 says voice comparison SHALL NOT be used as a biometric authenticator, so this project is a demonstrator, not a conformant authenticator.
 
 ## Scope and assumptions
 
-In scope: `StepUp.Api`, `StepUp.Core`, `StepUp.Infrastructure`, the Sherpa verifier, the SPA, the fake authority, the compose demo, the Entra integration. Out of scope: Entra itself, the browser and OS, hosting, physical access to the host, production deployment.
+In scope: `StepUp.Api`, `StepUp.Core`, `StepUp.Infrastructure`, the Sherpa verifier, the SPA, the fake authority, the compose demo, the Entra integration, the model fetch script. Out of scope: Entra itself, the browser and OS, hosting, physical access to the host, production deployment.
 
 Assumptions (conditional where marked):
-- A1. Demonstrator only; no real customer data and no internet-exposed production deployment. Rankings assume this. (If exposed, raise TM-003, TM-010.)
+- A1. Demonstrator only; no real customer data and no internet-exposed production deployment. If exposed, raise TM-010, TM-013, TM-016.
 - A2. The Entra tenant and the user's primary sign-in are trusted for identity; voice is a step-up on top.
-- A3. The host and its Data Protection key ring are not compromised.
+- A3. The host and its key ring are not compromised.
 - A4. Single instance, single tenant per deployment.
 
-Open questions that would change ranking: (a) will the demo ever be public? (b) does Entra put `amr`/`auth_time` in the access token for this API (M5 T5.4)? (c) what ASR model passes the M3 spike (T3.1)?
+Open questions that would change ranking: (a) will the demo ever be public? (b) does Entra honor the claims request and emit `amr` and `auth_time` for this API (M5 T5.4)? (c) which ASR model passes the M3 spike (T3.1)?
 
 ## System model
 
@@ -24,10 +24,12 @@ Open questions that would change ranking: (a) will the demo ever be public? (b) 
 SPA (browser), `StepUp.Api` (policy, challenge, assertion issuer), `IVerifier` (Sherpa in-process or `HttpVerifier`), SQLite store, Entra or `StepUp.FakeAuthority` (A§1).
 
 ### Data flows and trust boundaries
-- Browser → Api: bearer token, WAV upload, challenge id over HTTPS (HTTP in local demo). Guarantees: JWT validation (issuer, audience, `tid`, signature, lifetime), size and format checks, rate limiting.
-- Api → IdP: discovery and JWKS fetch. Guarantee: TLS, issuer pinning by configuration.
-- Api → Verifier: WAV and phrase; in-process or HTTP. Guarantee: timeout fails closed.
-- Api → SQLite: embeddings (encrypted), consent, attempts, thresholds, challenges. Guarantee: Data Protection encryption, no raw audio.
+Each boundary lists its required controls (design, not yet built; A§1 has the full table).
+- Browser → Api: bearer token, WAV upload, challenge id over HTTPS (HTTP in the local demo). Required controls: JWT validation (issuer, audience, `tid`, signature, lifetime, `scp`, roles, no app-only tokens), size and format checks, rate limiting, CORS allowlist.
+- Browser → IdP: authorization code with PKCE, `claims` parameter for the fallback.
+- Api → IdP: discovery and JWKS fetch over TLS, one issuer and one tenant.
+- Api → Verifier: WAV and phrase; in-process, or `HttpVerifier` on loopback or the compose network with a shared secret. The verifier returns the probe embedding and transcript; the Api scores.
+- Api → SQLite: embeddings (encrypted), consent, attempts, thresholds, challenges, used assertions.
 
 #### Diagram
 ```mermaid
@@ -48,6 +50,7 @@ flowchart LR
   SPA --> Fake
   SPA --> Api
   Api --> Entra
+  Api --> Fake
   Api --> Verifier
   Api --> Db
 ```
@@ -58,11 +61,11 @@ flowchart LR
 |---|---|---|
 | Voiceprint embeddings | Biometric data (GDPR Art. 9) | C, I |
 | Raw audio (in memory per request) | Biometric data; replay material | C |
-| Step-up assertion and signing key | Grants high-risk actions | I, C |
+| Step-up assertion and its signing key | Grants high-risk actions | I, C |
 | Consent records | Legal proof | I |
 | Attempt log | Analyst tuning, detection | I |
 | Thresholds | Control accuracy of the factor | I |
-| Challenges | Liveness | I |
+| Challenges | Replay resistance | I |
 | Availability of step-up | Users blocked from high-risk actions | A |
 
 ## Attacker model
@@ -70,8 +73,9 @@ flowchart LR
 ### Capabilities
 - Holds a valid low-assurance session for a victim (stolen token) or a recording of the victim's voice.
 - Can call any API endpoint, send crafted audio, and replay requests.
-- Can produce synthetic speech with off-the-shelf tools.
+- Can produce synthetic speech with off-the-shelf tools and splice recorded words.
 - A malicious or curious analyst account.
+- Can run script in the SPA origin if there is an XSS bug.
 
 ### Non-capabilities
 - No host or key-ring access, no ability to alter Entra, no break of TLS or ES256.
@@ -83,46 +87,57 @@ flowchart LR
 | `POST /api/stepup/verify` | Authenticated HTTP, WAV body | Browser → Api | Main attack surface | A§4 |
 | `POST /api/stepup/challenge` | Authenticated HTTP | Browser → Api | Phrase issuance | A§4 |
 | Enrollment endpoints | Authenticated HTTP, WAV | Browser → Api | Poisoning | A§2.1, A§4 |
-| `DELETE /api/voiceprint` | Authenticated HTTP | Browser → Api | Deletion race | A§2.4 |
+| `DELETE /api/voiceprint` | Authenticated HTTP | Browser → Api | Deletion race, residue | A§2.4 |
 | Analyst endpoints | Role-gated HTTP | Browser → Api | Threshold and log | A§4 |
-| `POST /api/payouts` + assertion | Authenticated HTTP | Browser → Api | Policy enforcement point | A§2.2 |
-| JWKS and discovery fetch | Outbound HTTP | Api → IdP | Key confusion | A§1 |
-| WAV parser | Inside verify and sample | Api internal | Malformed audio | A§5 |
-| Logs and telemetry | Process output | Api → ops | Audio or score leakage | A§3 |
+| `POST /api/payouts` + assertion or fresh MFA | Authenticated HTTP | Browser → Api | Policy enforcement point | A§2.2, A§2.3 |
+| `GET /api/me`, `GET /healthz` | HTTP | Browser → Api | Low risk; `/api/me` reveals enrollment state | A§4 |
+| Fake-authority authorize and token endpoints | HTTP | Browser → Fake | Mints any identity by design | A§1 |
+| PKCE sign-in flow | Browser redirects | Browser → IdP | Redirect URI type `spa` | A§1 |
+| Configuration (`Auth:Mode`, threshold seeds, limits) | Files, environment | Operator → Api | Threshold manipulation, Fake mode | A§1 |
+| Model fetch script | Network at build or first run | Operator → Net | Supply chain; checksum-verified | A§7 |
+| SPA static hosting | HTTP | Browser → web | CSP, token storage | A§7 |
+| WAV parser | Inside verify and sample | Api internal | Malformed audio (parser not yet chosen) | A§5 |
+| Logs and telemetry | Process output | Api → ops | Leakage | A§3 |
 
 ## Top abuse paths
 
 1. Replay: record a prior attempt → submit it for a new challenge → fails because the phrase differs and the old challenge is consumed.
-2. Clone: obtain victim voice samples → synthesize the new phrase → pass the speaker and ASR checks → obtain assertion (residual risk, no anti-spoofing).
-3. Enrollment poisoning: attacker with a stolen low-assurance session enrolls own voice for the victim → later passes step-up as the victim.
-4. Forge: craft an `amr=vbm` JWT or reuse an Entra token's claims → present at the payout endpoint → must fail signature, audience and bearer-binding checks.
-5. Downgrade: force verifier errors or exhaust attempts → push the user to the fallback → attacker with a stolen session completes weaker MFA or none.
-6. Tamper: analyst or attacker lowers the threshold or edits attempts → accept bad voices or hide abuse.
-7. Race: replay a verify call while a deletion is in flight → assertion issued for a deleted voiceprint.
-8. Leak: raw audio or scores appear in logs, exception text or telemetry.
-9. Malformed audio: oversized or crafted WAV → crash or resource exhaustion in the parser or verifier.
+2. Splice or clone: collect words or voice samples of the victim → splice or synthesize the new phrase → pass the speaker and ASR checks → obtain assertion (residual risk, no anti-spoofing).
+3. Enrollment poisoning: attacker with a stolen low-assurance session enrolls own voice for the victim → blocked only if enrollment needs fresh MFA and the samples must be one speaker.
+4. Forge or reuse: craft an `amr=vbm` JWT, reuse an assertion for another action or payload, or present an Entra token → must fail signature, `typ`, `aud`, `act`, single-use and bearer-binding checks.
+5. Downgrade: force verifier errors or exhaust attempts → push the user to the fallback → attacker with a stale-MFA session passes if the fallback trusts `iat` (design uses `auth_time` only).
+6. Tamper: analyst or attacker lowers the threshold, seeds it through config, or edits attempts → accept bad voices or hide abuse.
+7. Race: replay a verify call while a deletion is in flight → assertion for a deleted voiceprint.
+8. Leak: raw audio, transcript or scores appear in logs, telemetry or the failure response.
+9. Malformed or abundant audio: oversized or crafted WAV, or many parallel requests → crash or exhaustion.
+10. Fake mode in a real deployment: anyone mints tokens for any `oid` with an `mfa` amr.
 
 ## Threat model table
 
-| Threat ID | Threat source | Prerequisites | Threat action | Impact | Impacted assets | Existing controls (evidence) | Gaps | Recommended mitigations | Detection ideas | Likelihood | Impact severity | Priority |
+| Threat ID | Threat source | Prerequisites | Threat action | Impact | Impacted assets | Existing controls (design) | Gaps | Recommended mitigations | Detection ideas | Likelihood | Impact severity | Priority |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| TM-001 | Remote attacker | Recording of victim speaking | Replay a recorded phrase | Step-up bypass | Assertion, challenges | Single-use random 4-word phrase, 60 s TTL, ASR check (A§2.2, ADR-0002) | ASR spike pending | Consume challenge atomically; ASR match required | Repeated `PhraseMismatch` per user | Medium | High | high |
-| TM-002 | Remote attacker | Voice samples; TTS or cloning tool | Synthetic voice reads the phrase | Step-up bypass | Assertion | None (no anti-spoofing; A§5) | No countermeasure | State the limit in README; keep voice a second factor only; log scores | Score distribution drift in analyst log | Medium | High | high |
-| TM-003 | Remote attacker | Stolen low-assurance session | Enroll attacker voice for the victim | Persistent bypass | Voiceprints | Consent flow (A§2.1) | Enrollment strength not specified | Require fresh MFA to enroll or replace a voiceprint; one voiceprint per user | Enrollment events in attempt log | Medium | High | high |
-| TM-004 | Analyst or attacker | Analyst role or DB write | Lower the threshold or edit the log | Weak factor, hidden abuse | Thresholds, attempts | Role-gated endpoints (A§4) | No audit of threshold changes | Bounds on threshold, `UpdatedBy`, append-only log, history | Alert on threshold change | Low | High | medium |
-| TM-005 | Remote attacker | Ability to cause verifier errors | Force timeout or errors to push users to fallback | Downgrade | Availability, fallback | Fail closed (A§6) | Fallback strength depends on Entra | Fallback requires fresh `ngcmfa`/`mfa`; never pass on error | Spike in `VerifierError`/`Timeout` | Medium | Medium | medium |
-| TM-006 | Remote attacker | Valid bearer token | Forge or replay the `vbm` assertion | Action authorized without voice | Assertion, signing key | ES256, `jti`, 5 min, bearer binding (A§4, ADR-0005) | Key storage and rotation unspecified | Validate `iss`, `aud`, `oid`, `tid`, `jti` once; protect key | Reused `jti` | Low | High | medium |
-| TM-007 | Remote attacker | Entra token | Treat Entra `amr` as the service assertion, or the reverse | Token confusion | Assertion | Separate issuer and audience (ADR-0005) | None yet | Distinct `aud`, `typ`; reject Entra tokens at assertion check | Wrong-`aud` rejections | Low | High | medium |
-| TM-008 | Remote attacker or user | Concurrent requests | Race deletion against verify or enrollment | Assertion for deleted voiceprint | Voiceprints, consent | Delete removes the row (A§2.4) | No transaction rule stated | Verify reads the embedding inside a transaction with consent check | None | Low | Medium | low |
-| TM-009 | Insider or operator | Log or telemetry access | Raw audio, transcript or scores leak | Biometric exposure | Raw audio, embeddings | No audio persisted; no audio in logs (A§3) | None yet | Never log request bodies; scrub exceptions | Log scan in CI | Medium | High | high |
-| TM-010 | Remote attacker | Network access | Oversized or crafted WAV | DoS, parser bug | Availability | Size and format limits (A§4) | Parser not chosen | Hard limits before parse; verifier timeout; rate limit | 413/415 counts | Medium | Medium | medium |
-| TM-011 | Host compromise | File access | Read or lose embeddings or key ring | Biometric exposure, forced re-enroll | Embeddings | Data Protection encryption (ADR-0006) | Key ring location | Key ring outside repo and image; permissions | Not detectable here | Low | High | medium |
-| TM-012 | Remote attacker | Valid session | Brute-force the voice factor | Eventually pass | Assertion | 5 fails → 30 s delay; 50 → disabled (A§4) | Limits per user only | Add per-IP rate limit | `RateLimited` counts | Medium | Medium | medium |
+| TM-001 | Remote attacker | Recordings of the victim saying the phrase, or each word | Replay a whole clip, or splice recorded words | Step-up bypass | Assertion, challenges | Single-use random 4-word phrase from a word list, ASR check (A§2.2, A§5, ADR-0002) | Control pending T3.1; splicing not stopped; word-list size and phrase entropy not yet stated | State word-list size and entropy; no enrollment words in the challenge list; bind challenge to user and action | Repeated `PhraseMismatch` per user in the log | Medium | High | high |
+| TM-002 | Remote attacker | Voice samples; TTS or conversion tool | Synthetic or converted voice reads the phrase | Step-up bypass | Assertion | None (no anti-spoofing; A§5) | No countermeasure | State the limit in README; voice stays a second factor; evaluation reports spoof coverage as not measured | Score distribution drift | Medium | High | high |
+| TM-003 | Remote attacker | Stolen low-assurance session | Enroll attacker voice for the victim | Persistent bypass | Voiceprints | Enrollment needs fresh MFA; enrollment id bound to the user; samples must pass the consistency floor (A§2.1) | Depends on the UNVERIFIED fallback rule (T5.4) | Same `auth_time` rule as the fallback; reject mixed-speaker samples | Enrollment events in the attempt log | Medium | High | high |
+| TM-004 | Analyst or attacker | Analyst role, config write or DB write | Lower the threshold or edit the log | Weak factor, hidden abuse | Thresholds, attempts | Role-gated endpoints; bounds 0.0 to 1.0 with a floor; append-only attempts (A§3, A§4) | Config seeding path | Thresholds not hardcoded; every change records `UpdatedBy`; analyst role in Fake mode only via demo tokens | Alert on threshold change | Low | High | medium |
+| TM-005 | Remote attacker | Stolen session; ability to cause verifier errors | Force the fallback and pass it with stale MFA | Downgrade | Fallback, availability | Fail closed (A§6); fallback needs `mfa` or `ngcmfa` and `auth_time` within N minutes, missing `auth_time` fails (A§2.3) | Entra behavior UNVERIFIED | Fallback tests on the fake authority (M2) and the live tenant (M5) | Spike in `VerifierError`/`Timeout`; fallback attempts logged with `Mode=fallback` | Medium | High | high |
+| TM-006 | Remote attacker | Valid bearer token | Forge, replay or repurpose the `vbm` assertion | Action authorized without voice, or for another action or payload | Assertion | ES256 only, `typ`, `aud`, `act`, optional payload hash, single use via `UsedAssertions`, bearer binding, own key set (A§4, ADR-0005) | None beyond key handling (TM-014) | Validator pins algorithm and key set; reject `none`, HS256, unknown `kid` | Reused `jti` | Low | High | medium |
+| TM-007 | Remote attacker | Entra token or assertion | Token confusion between Entra tokens and the assertion | Bypass | Assertion | Separate handlers, `aud` and `typ`; a `vbm` inside an Entra token is never accepted (A§1) | None yet | Both handlers reject the other's token | Wrong-`aud` rejections | Low | High | medium |
+| TM-008 | Remote attacker or user | Concurrent requests; file access | Race deletion against verify; read deleted data from the DB file | Assertion for deleted voiceprint; biometric residue | Voiceprints, consent | Delete removes the row; `secure_delete` on; attempts pseudonymised (A§2.4, A§3) | Assertion issued before deletion stays valid up to 5 min | Verify reads embedding and consent in one transaction; state the 5-minute limit | None | Low | Medium | low |
+| TM-009 | Insider or operator | Log or telemetry access | Raw audio, transcript or scores leak | Biometric exposure | Raw audio, embeddings | Application logs and telemetry carry no audio, transcript or score; the attempt store holds scores for the analyst role only (A§3) | None yet | Never log request bodies; scrub exceptions | Log scan in CI | Medium | High | high |
+| TM-010 | Remote attacker | Network access, valid token | Oversized or crafted WAV; many parallel requests | DoS of all users, forced fallback | Availability | Size and format limits; per-user rate limits on `sample`, `challenge`, `verify`; cap on open challenges; global verifier concurrency limit; timeout (A§4, A§6) | Parser not chosen; ASR on a 10 s clip may exceed the 3 s timeout | Hard limits before parse; measure embedding plus ASR p95 in T3.1 | 413, 415, 429 counts | Medium | Medium | medium |
+| TM-011 | Host compromise | File access | Read or lose embeddings or the key ring | Biometric exposure, forced re-enroll | Embeddings | Data Protection encryption (ADR-0006); `UserKey` is an HMAC | Key ring location | Key ring outside repo and image; permissions; secret scanner in CI | Not detectable here | Low | High | medium |
+| TM-012 | Remote attacker | Valid session | Brute-force the voice factor, or lock a victim's voice | Eventually pass, or victim pushed to fallback | Assertion, availability | 5 fails → 30 s delay; 50 → voice disabled; counter resets on any successful step-up; re-enable by re-enrollment with fresh MFA; per-user primary, per-IP secondary (A§4) | Lockout is a nuisance path to the fallback | Keep the fallback strong (TM-005) | `RateLimited` counts | Medium | Medium | medium |
+| TM-013 | Operator error or attacker | Misconfigured deployment | Fake mode runs outside a demo, or Entra mode trusts the fake issuer | Total auth bypass, analyst role included | All | Fake mode needs an explicit demo flag in Development or on loopback or compose; Entra mode accepts one issuer and one `tid`; fake key per run (A§1) | Not implemented | Startup refusal; startup log names the mode | Startup log line | Low | High | high |
+| TM-014 | Host or repo exposure | Access to key material | Steal or swap the ES256 assertion key | Forge any assertion | Signing key | Key generated at first start, Data Protection in the volume, `kid`, manual rotation, never in repo or image (A§4, ADR-0005) | Rotation is manual | Pin `alg`; secret scanner in CI; check image layers | Unknown `kid` rejections | Low | High | high |
+| TM-015 | Network attacker or rogue service | Access to the verifier hop | Spoof `HttpVerifier` or read WAV in transit | Fake pass, biometric exposure | Audio, assertion | Loopback or compose network, shared-secret header, no body logging; the Api scores from the returned embedding (A§1) | Owner is M3 T3.7 | Never send the stored embedding to the verifier | Verifier auth failures | Low | Medium | low |
+| TM-016 | Remote attacker | XSS in the SPA | Read tokens and assertion, call the API as the user | Account misuse | Bearer, assertion | CSP; no `localStorage` for tokens; CORS allowlist; short assertion life; no cookies so no CSRF (A§7) | The binding stops cross-user use only, not same-session theft | Keep dependencies minimal; strict CSP | CSP violation reports | Low | Medium | medium |
+| TM-017 | Remote attacker | Valid session | Use failure detail as an oracle to tune synthetic audio | Faster cloning | Assertion | One generic `VerificationFailed`; both checks always run; score and threshold never returned (A§4) | Timing differences | Test response uniformity | Many failed attempts per user | Medium | Medium | medium |
 
 ## Criticality calibration
 
 - critical: unauthenticated step-up bypass; signing key theft; mass embedding exfiltration. Examples: assertion accepted without bearer token; key committed to the repo; embeddings readable in the DB file.
-- high: bypass needing one realistic precondition. Examples: replay passes (TM-001); voice cloning (TM-002); enrollment hijack (TM-003).
+- high: bypass needing one realistic precondition. Examples: replay or splicing passes (TM-001); voice cloning (TM-002); enrollment hijack (TM-003); stale-MFA fallback (TM-005).
 - medium: weakening or DoS needing privilege or effort. Examples: threshold tampering; forced fallback; large-audio DoS.
 - low: narrow races, minor leaks. Examples: deletion race; wrong-`aud` info leak.
 
@@ -131,30 +146,37 @@ flowchart LR
 | Path | Why it matters | Related Threat IDs |
 |---|---|---|
 | `src/StepUp.Core` challenge service | Single use and binding | TM-001, TM-012 |
-| `src/StepUp.Api` assertion issuer and validator | Forgery and confusion | TM-006, TM-007 |
+| `src/StepUp.Api` assertion issuer and validator | Forgery, confusion, key | TM-006, TM-007, TM-014 |
+| `src/StepUp.Api` auth setup and fallback | Fake mode, downgrade | TM-005, TM-013 |
 | `src/StepUp.Api` enrollment | Poisoning and consent | TM-003, TM-008 |
 | `src/StepUp.Infrastructure` | Encryption, deletion | TM-008, TM-011 |
-| `src/StepUp.Verifier.Sherpa` and WAV ingest | Parser and timeout | TM-005, TM-010 |
-| Logging configuration | Leakage | TM-009 |
-| Analyst endpoints | Threshold integrity | TM-004 |
+| `src/StepUp.Verifier.Sherpa` and WAV ingest | Parser, timeout, hop | TM-010, TM-015 |
+| Logging configuration and failure responses | Leakage, oracle | TM-009, TM-017 |
+| Analyst endpoints and config | Threshold integrity | TM-004 |
+| `web/` | XSS, token storage | TM-016 |
 
 ## Invariants and tests by milestone
 
 | Threat | Invariant | Named test or check | Milestone |
 |---|---|---|---|
-| TM-001 | A challenge verifies at most once and only for its user and action | `Challenge_IsSingleUse`, `Challenge_ExpiresAfter60s`, `Verify_RejectsPhraseMismatch` | M2, M3 |
-| TM-002 | None (limit stated) | README limit present; evaluation report states no anti-spoofing | M6, M8 |
-| TM-003 | Enroll or replace needs fresh MFA and consent | `Enroll_RequiresFreshMfa`, `Enroll_RequiresConsent` | M2, M7 |
-| TM-004 | Threshold within bounds; every change recorded | `Thresholds_RejectOutOfRange`, `Thresholds_RecordUpdatedBy` | M2 |
-| TM-005 | Verifier error or timeout never passes | `Verify_FailsClosedOnTimeout`, `Verify_FailsClosedOnVerifierError` | M2, M7 |
-| TM-006 | Assertion rejected if tampered, expired, replayed, wrong user, or without bearer | Tamper, expiry, wrong-user, replay, missing-bearer tests (T2.3) | M2 |
-| TM-007 | Entra tokens are not accepted as assertions | `Assertion_RejectsEntraToken` | M2 |
-| TM-008 | Verify after delete returns `NoVoiceprint` | `Verify_AfterDelete_ReturnsNoVoiceprint`, concurrent variant | M2, M7 |
-| TM-009 | No audio, transcript or score in logs | Log-capture test over a full flow | M2, M7 |
-| TM-010 | Audio over limits is rejected before parsing | `Wav_RejectsOversize`, `Wav_RejectsBadFormat` | M3 |
-| TM-011 | Stored embedding is not plaintext; key ring is outside the repo | `Embedding_IsEncryptedAtRest`; `git grep` check | M2, M8 |
-| TM-012 | 5 failures delay, 50 disable voice | `Attempts_DelayAfter5`, `Attempts_DisableAfter50` | M2 |
+| TM-001 | A challenge verifies at most once and only for its user and action | `Challenge_IsSingleUse`, `Challenge_ExpiresAfter60s`, `Challenge_RejectsOtherUser`, `Challenge_RejectsOtherAction`, `Challenge_ConcurrentVerify_OnlyOneSucceeds`, `Verify_RejectsPhraseMismatch` | M2, M3 |
+| TM-002 | None (limit stated) | README limit present; evaluation report lists spoofing as not measured | M6, M8 |
+| TM-003 | Enroll or replace needs fresh MFA, an owned enrollment id and consistent speakers | `Enroll_RequiresFreshMfa`, `Enroll_RequiresConsent`, `Enroll_RejectsOtherUsersEnrollmentId`, `Enroll_RejectsInconsistentSpeakers` | M2, M3, M5 |
+| TM-004 | Threshold within bounds; every change recorded; log append only; analyst endpoints reject the user role | `Thresholds_RejectOutOfRange`, `Thresholds_RecordUpdatedBy`, `Thresholds_NotHardcoded`, `Analyst_EndpointsRejectUserRole`, `Attempts_HasNoUpdateOrDeletePath` | M2 |
+| TM-005 | Verifier error or timeout never passes; fallback needs fresh `auth_time` and `mfa`/`ngcmfa` | `Verify_FailsClosedOnTimeout`, `Verify_FailsClosedOnVerifierError`, `Fallback_RejectsStaleAuthTime`, `Fallback_RejectsMissingAuthTime`, `Fallback_RejectsAmrWithoutMfa`, `Fallback_AcceptsFreshMfa`; live check in the T5.4 spike | M2, M5 |
+| TM-006 | Assertion rejected if tampered, expired, replayed, wrong user, wrong action, changed payload, or without bearer | `Assertion_RejectsWrongAction`, `Assertion_RejectsChangedPayload`, `Assertion_IsSingleUse`, `Assertion_RejectsAlgNone`, `Assertion_RejectsHs256`, `Assertion_RejectsUnknownKid`, plus tamper, expiry, wrong-user, missing-bearer tests (T2.3) | M2 |
+| TM-007 | Entra tokens are not accepted as assertions and the reverse | `Assertion_RejectsEntraToken`, `Bearer_RejectsStepUpAssertion` | M2 |
+| TM-008 | Verify after delete returns `NoVoiceprint`; no embedding bytes remain in the DB file | `Verify_AfterDelete_ReturnsNoVoiceprint`, concurrent variant, `Delete_LeavesNoEmbeddingBytesInDbFile` | M2, M7 |
+| TM-009 | No audio, transcript or score in application logs | Log-capture test over a full flow | M2, M7 |
+| TM-010 | Audio over limits is rejected before parsing; verifier concurrency is bounded | `Wav_RejectsOversize`, `Wav_RejectsBadFormat`, `Verifier_ConcurrencyLimitReturns429` | M3 |
+| TM-011 | Stored embedding is not plaintext; key ring and signing key are outside the repo and image | `Embedding_IsEncryptedAtRest`; secret scan in CI; image-layer check | M2, M8 |
+| TM-012 | 5 failures delay, 50 disable voice; reset and re-enable rules hold | `Attempts_DelayAfter5`, `Attempts_DisableAfter50`, `Attempts_ResetOnSuccess` | M2 |
+| TM-013 | Fake mode refused outside demo; Entra mode rejects the fake issuer | `Startup_RefusesFakeModeOutsideDemo`, `EntraMode_RejectsFakeIssuerToken` | M2, M5 |
+| TM-014 | Assertion key is never in the repo or image | Secret scan in CI; `Assertion_RejectsUnknownKid` | M2, M8 |
+| TM-015 | `HttpVerifier` hop is authenticated and the stored embedding never leaves the Api | `HttpVerifier_RejectsMissingSecret`; contract suite | M3 |
+| TM-016 | CSP header present; CORS allows only the SPA origin; no token in `localStorage` | `Cors_RejectsOtherOrigins` (M2); CSP header test and storage check (M4) | M2, M4 |
+| TM-017 | Failure response is identical for phrase and score failures | `Verify_FailResponse_IsUniform`, `Verify_HighScorePhraseMismatch_NoAssertion`, `Verify_BelowThreshold_NoAssertion`, `Verify_ModelIdMismatch_ReturnsReEnrollRequired` | M2 |
 
 ## Notes on use
 
-v0 is a design review. Re-run with code evidence in M8 (T8.2). Treat A1 as the assumption most likely to change priorities.
+v1 is a design review. Re-run with code evidence in M8 (T8.2). Treat A1 as the assumption most likely to change priorities.
