@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using StepUp.Core;
 using StepUp.FakeAuthority;
 
 namespace StepUp.Api.Tests;
@@ -179,6 +180,18 @@ public sealed class AuthModeTests
         var fakeAuthority = new FakeTokenMinter(ApiFactory.Issuer, "api://voice-step-up");
 
         Assert.Equal(HttpStatusCode.Unauthorized, await MeAsync(client, fakeAuthority.Mint(Request())));
+    }
+
+    [Fact]
+    public async Task Bearer_RejectsStepUpAssertion_InEntraMode()
+    {
+        using var api = new EntraModeApi();
+        using var client = api.Factory.CreateClient();
+        var assertion = api.Factory.Services.GetRequiredService<StepUpAssertionService>()
+            .Issue(new AssertionBinding(FakeDirectory.Users["alice"].Oid, "00000000-0000-0000-0000-000000000000", "payout", null)).Token;
+
+        Assert.Equal(HttpStatusCode.OK, await MeAsync(client, api.EntraStandIn.Mint(Request())));
+        Assert.Equal(HttpStatusCode.Unauthorized, await MeAsync(client, assertion));
     }
 
     [Fact]

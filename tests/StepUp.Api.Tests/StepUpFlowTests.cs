@@ -239,17 +239,30 @@ public sealed class StepUpFlowTests : IDisposable
         var (id2, _) = await Flows.ChallengeAsync(client);
         var wrongPhrase = await Flows.VerifyAsync(client, id2, ApiFactory.Speech(1, "bamboo basket beacon bridge"));
 
-        var a = await wrongSpeaker.Content.ReadAsStringAsync(Ct);
-        var b = await wrongPhrase.Content.ReadAsStringAsync(Ct);
+        var a = Normalized(await wrongSpeaker.Content.ReadAsStringAsync(Ct));
+        var b = Normalized(await wrongPhrase.Content.ReadAsStringAsync(Ct));
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, wrongSpeaker.StatusCode);
         Assert.Equal(wrongSpeaker.StatusCode, wrongPhrase.StatusCode);
         Assert.Equal("VerificationFailed", await wrongSpeaker.CodeAsync());
         Assert.Equal("VerificationFailed", await wrongPhrase.CodeAsync());
-        Assert.DoesNotContain("score", a, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("threshold", b, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("PhraseMismatch", b, StringComparison.Ordinal);
-        Assert.DoesNotContain("BelowThreshold", a, StringComparison.Ordinal);
+
+        // The two failures are indistinguishable: identical bodies once the per-request trace id is removed.
+        Assert.Equal(a, b);
+        foreach (var body in new[] { a, b })
+        {
+            Assert.DoesNotContain("score", body, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("threshold", body, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("PhraseMismatch", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("BelowThreshold", body, StringComparison.Ordinal);
+        }
+    }
+
+    private static string Normalized(string problemJson)
+    {
+        var node = System.Text.Json.Nodes.JsonNode.Parse(problemJson)!.AsObject();
+        node.Remove("traceId");
+        return node.ToJsonString();
     }
 
     [Fact]

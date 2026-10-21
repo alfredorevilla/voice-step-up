@@ -123,44 +123,81 @@ public class AssertionTests
         Assert.False((await Service.ValidateAndConsumeAsync($"{header}.{payload}.", _binding, Ct)).Ok);
     }
 
-    [Fact]
-    public async Task Assertion_RejectsHs256()
+    private sealed class Keys(SecurityKey signing, params SecurityKey[] validation) : IAssertionKeyProvider
     {
-        var symmetric = new SymmetricSecurityKey(RandomNumberGenerator.GetBytes(32)) { KeyId = "kid-1" };
-        var token = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+        public SecurityKey SigningKey { get; } = signing;
+
+        public IReadOnlyCollection<SecurityKey> ValidationKeys { get; } = validation;
+    }
+
+    private static readonly string[] ValidAmr = ["vbm"];
+
+    /// <summary>A token that is valid in every respect except what <paramref name="tweak"/> changes, so a rejection has one cause.</summary>
+    private string Token(SecurityKey key, string algorithm, Action<SecurityTokenDescriptor>? tweak = null)
+    {
+        var descriptor = new SecurityTokenDescriptor
         {
             Issuer = _options.Issuer,
             Audience = _options.Audience,
             TokenType = StepUpAssertionService.TokenType,
             Expires = _time.GetUtcNow().AddMinutes(5).UtcDateTime,
-            Claims = new Dictionary<string, object> { ["sub"] = "oid-1", ["tid"] = "tid-1", ["act"] = "payout", ["jti"] = "j1" },
-            SigningCredentials = new SigningCredentials(symmetric, SecurityAlgorithms.HmacSha256),
-        });
+            Claims = new Dictionary<string, object> { ["sub"] = "oid-1", ["tid"] = "tid-1", ["amr"] = ValidAmr, ["act"] = "payout", ["jti"] = Guid.NewGuid().ToString("N") },
+            SigningCredentials = new SigningCredentials(key, algorithm),
+        };
+        tweak?.Invoke(descriptor);
+        return new JsonWebTokenHandler().CreateToken(descriptor);
+    }
 
-        Assert.False((await Service.ValidateAndConsumeAsync(token, _binding, Ct)).Ok);
+    private ECDsa TrustedEcdsa => ((ECDsaSecurityKey)_keys.SigningKey).ECDsa;
+
+    [Fact]
+    public async Task Assertion_RejectsHs256()
+    {
+        // The HMAC key is in the trusted key set under its own kid, so only the pinned algorithm can reject this token.
+        var symmetric = new SymmetricSecurityKey(RandomNumberGenerator.GetBytes(32)) { KeyId = "kid-hs" };
+        var service = new StepUpAssertionService(new Keys(_keys.SigningKey, _keys.SigningKey, symmetric), new InMemoryUsedAssertionStore(), _options, _time);
+        var hs256 = Token(symmetric, SecurityAlgorithms.HmacSha256);
+        var control = Token(_keys.SigningKey, SecurityAlgorithms.EcdsaSha256);
+
+        Assert.True((await service.ValidateAndConsumeAsync(control, _binding, Ct)).Ok);
+        Assert.False((await service.ValidateAndConsumeAsync(hs256, _binding, Ct)).Ok);
     }
 
     [Fact]
     public async Task Assertion_RejectsUnknownKid()
     {
-        var stranger = new TestKeys("kid-unknown");
-        var token = new StepUpAssertionService(stranger, new InMemoryUsedAssertionStore(), _options, _time).Issue(_binding).Token;
+        // Same private key, so the signature is valid; only the unknown kid can reject it.
+        var sameKeyOtherKid = new ECDsaSecurityKey(TrustedEcdsa) { KeyId = "kid-unknown" };
+        var rightKid = new ECDsaSecurityKey(TrustedEcdsa) { KeyId = "kid-1" };
 
-        Assert.False((await Service.ValidateAndConsumeAsync(token, _binding, Ct)).Ok);
+        Assert.True((await Service.ValidateAndConsumeAsync(Token(rightKid, SecurityAlgorithms.EcdsaSha256), _binding, Ct)).Ok);
+        Assert.False((await Service.ValidateAndConsumeAsync(Token(sameKeyOtherKid, SecurityAlgorithms.EcdsaSha256), _binding, Ct)).Ok);
     }
 
-    [Fact]
-    public async Task Assertion_RejectsEntraToken()
+    [Theory]
+    [InlineData("typ")]
+    [InlineData("aud")]
+    [InlineData("iss")]
+    [InlineData("all")]
+    public async Task Assertion_RejectsEntraToken(string whatLooksLikeEntra)
     {
-        var entraLike = new TestKeys("entra-kid");
-        var token = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+        // Signed by the trusted key with a valid signature and lifetime: only the typ, aud or iss check can reject it.
+        var token = Token(_keys.SigningKey, SecurityAlgorithms.EcdsaSha256, d =>
         {
-            Issuer = "https://login.microsoftonline.com/tid-1/v2.0",
-            Audience = "api://app-id",
-            TokenType = "JWT",
-            Expires = _time.GetUtcNow().AddMinutes(30).UtcDateTime,
-            Claims = new Dictionary<string, object> { ["sub"] = "oid-1", ["oid"] = "oid-1", ["tid"] = "tid-1", ["amr"] = new[] { "vbm" }, ["act"] = "payout", ["jti"] = "j2" },
-            SigningCredentials = new SigningCredentials(entraLike.SigningKey, SecurityAlgorithms.EcdsaSha256),
+            if (whatLooksLikeEntra is "typ" or "all")
+            {
+                d.TokenType = "JWT";
+            }
+
+            if (whatLooksLikeEntra is "aud" or "all")
+            {
+                d.Audience = "api://app-id";
+            }
+
+            if (whatLooksLikeEntra is "iss" or "all")
+            {
+                d.Issuer = "https://login.microsoftonline.com/tid-1/v2.0";
+            }
         });
 
         Assert.False((await Service.ValidateAndConsumeAsync(token, _binding, Ct)).Ok);
