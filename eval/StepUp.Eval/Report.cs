@@ -37,7 +37,7 @@ public static class Report
         sb.AppendLine();
         sb.AppendLine("> **Speaker verification only.** These numbers describe the speaker-embedding score of the production code on LibriSpeech read speech. They are not the full false-reject rate of the product (ASR rejects are not included), they say nothing about spoofing, cloning, splicing or browser audio, and the test set is small. See [Not measured](#not-measured) and [Limits](#limits).");
         sb.AppendLine();
-        sb.AppendLine($"Protocol: `docs/design/evaluation-protocol.md`, committed as `{r.ProtocolCommit}` before any result existed. Reproduce with `scripts/eval.sh`.");
+        sb.AppendLine($"Protocol: `docs/design/evaluation-protocol.md`, committed as {r.ProtocolCommit} before any result existed. Reproduce with `scripts/eval.sh`.");
         sb.AppendLine();
 
         sb.AppendLine("## Headline (test-clean, primary condition P0)");
@@ -50,6 +50,7 @@ public static class Report
         sb.AppendLine($"- Best case (S0, full utterances): FAR {Pct(s0.AtDefault.Far)}, FRR {Pct(s0.AtDefault.Frr)}, EER {Pct(s0.Eer)}.");
         sb.AppendLine($"- Speakers: {p0.Speakers}. Distinct impostor speaker pairs: {p0.ImpostorSpeakerPairs}.");
         sb.AppendLine();
+        AppendHeadlineNotes(sb, r, p0, s0);
 
         sb.AppendLine("## Setup");
         sb.AppendLine();
@@ -82,6 +83,8 @@ public static class Report
         sb.AppendLine($"| Enrollment consistency floor | R3: 1st percentile of the lowest pairwise cosine of genuine enrollments | **{Num(f.ConsistencyFloor, 2)}** | `StepUp:EnrollmentConsistencyFloor` |");
         sb.AppendLine($"| Phrase match threshold | R4 | **{(double.IsNaN(f.PhraseThreshold) ? "none qualifies" : Num(f.PhraseThreshold, 2))}** | `PhraseGenerator.MatchThreshold` |");
         sb.AppendLine($"| Cohort score normalisation | R5: adopt if P0 EER is 20% lower and no degraded EER rises | **{(f.CohortAdopted ? "criterion met" : "not adopted")}** | scores stay raw cosines |");
+        sb.AppendLine();
+        sb.AppendLine($"Rounding the threshold up to two decimals lowers FAR a little: on dev-clean the default threshold gives FAR {Pct(r.DevSummaries["P0"].AtDefault.Far)} in P0 (the target was 1%).");
         sb.AppendLine();
         sb.AppendLine("Cohort normalisation, EER on dev-clean:");
         sb.AppendLine();
@@ -172,6 +175,8 @@ public static class Report
         sb.AppendLine("- Percentiles use linear interpolation between ranks (the protocol did not name a method).");
         sb.AppendLine("- Phrase cases the production quality gate refuses are excluded from the phrase rates and counted (the protocol did not say how to treat them).");
         sb.AppendLine("- Dependence of the genuine/impostor trials of one probe on many claimed speakers is not modelled beyond the cluster bootstrap on the claimed speaker.");
+        sb.AppendLine("- Amendment 1 (probe pool sized to the utterances a speaker has) was made after a first full run stopped with an error on a speaker with too few long utterances. That run produced no result. A 3-speaker smoke run of the pipeline came earlier; no value was chosen from it or from any test-clean score.");
+        sb.AppendLine("- Reproducibility was checked by recomputing the embeddings of 2 speakers per set without the cache: they matched the cached ones exactly.");
         sb.AppendLine();
 
         sb.AppendLine("## Attribution");
@@ -221,6 +226,22 @@ public static class Report
         }
 
         File.WriteAllText(Path.Combine(directory, "summary.csv"), summary.ToString());
+    }
+
+    private static void AppendHeadlineNotes(StringBuilder sb, ReportInput r, ConditionSummary p0, ConditionSummary s0)
+    {
+        var devFar = r.DevSummaries["P0"].AtDefault.Far;
+        sb.AppendLine("What this means:");
+        sb.AppendLine();
+        sb.AppendLine(p0.AtDefault.Frr > 0.2
+            ? $"- With a 2 s probe, the speaker check alone sends about {Math.Round(p0.AtDefault.Frr * 10)} in 10 genuine attempts to the fallback at this threshold. Voice would be the occasional first try, not the normal path."
+            : $"- With a 2 s probe, the speaker check alone sends about {Pct(p0.AtDefault.Frr)} of genuine attempts to the fallback at this threshold.");
+        sb.AppendLine(p0.AtDefault.FarBootstrap.Lo > devFar
+            ? $"- The same threshold gave FAR {Pct(devFar)} on dev-clean and {Pct(p0.AtDefault.Far)} on test-clean, above the test-clean bootstrap lower bound {Pct(p0.AtDefault.FarBootstrap.Lo)}: impostors in test-clean score higher than in dev-clean. A threshold chosen on 40 speakers does not carry over exactly to another 40."
+            : $"- The same threshold gave FAR {Pct(devFar)} on dev-clean and {Pct(p0.AtDefault.Far)} on test-clean; the dev-clean value lies inside the test-clean bootstrap interval.");
+        sb.AppendLine($"- The threshold belongs to the P0 design (a 2 s probe). With full utterances (S0) the same threshold gives FAR {Pct(s0.AtDefault.Far)} and FRR {Pct(s0.AtDefault.Frr)}: a different probe length needs its own operating point, and a longer phrase would help far more than any threshold.");
+        sb.AppendLine("- Noise hurts a lot: see P1 and P2. Moderate noise raises the EER well above the clean value, and the production gate refuses most audio below 10 dB SNR.");
+        sb.AppendLine();
     }
 
     private static void AppendResultTable(StringBuilder sb, IReadOnlyDictionary<string, ConditionSummary> summaries, double threshold, Func<ConditionSummary, OperatingPoint> pick)
@@ -274,7 +295,12 @@ public static class Report
 
         sb.AppendLine();
         sb.AppendLine($"Rule: keep {Num(PhraseGenerator.MatchThreshold, 2)} if at least 90% of correct phrases and at most 1% of wrong phrases are accepted on dev-clean; otherwise the grid value described in the protocol.");
-        sb.AppendLine("A near miss (one wrong word) is mostly accepted by a letter-similarity check; this is a known weakness of the check and is shown for information, not gated.");
+        if (!double.IsNaN(f.PhraseThreshold))
+        {
+            var nearTest = PhraseCheck.Rates(r.Test.Phrase.Scores, f.PhraseThreshold);
+            sb.AppendLine($"The check separates different phrases (wrong phrases accepted: {Pct(nearTest.WrongAccepted)}) but not near-identical ones: a phrase with one wrong word is accepted {Pct(nearTest.NearMissAccepted)} of the time on test-clean. It stops a replay of a whole different phrase, not a recording that differs by a word. The near-miss rate is shown for information and is not gated; the design response (longer phrases, a stricter word-level rule) is a follow-up, not part of M6.");
+        }
+
         sb.AppendLine();
     }
 

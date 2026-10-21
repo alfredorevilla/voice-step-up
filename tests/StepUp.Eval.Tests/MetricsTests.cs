@@ -22,6 +22,14 @@ public class MetricsTests
     }
 
     [Fact]
+    public void A_genuine_score_exactly_at_the_threshold_is_accepted()
+    {
+        double[] genuine = [0.6, 0.7, 0.8, 0.9];
+        // < 0.8: only 0.6 and 0.7 are rejected; 0.8 itself is accepted -> 2 of 4
+        Assert.Equal(0.5, Metrics.Frr(genuine, 0.8));
+    }
+
+    [Fact]
     public void Threshold_at_far_is_the_smallest_threshold_that_meets_the_target()
     {
         double[] impostor = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];

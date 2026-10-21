@@ -46,7 +46,12 @@ fetch() {
 run() {
   "$root/scripts/fetch-models.sh"
   local protocol
-  protocol="$(git -C "$root" log -1 --format=%h -- docs/design/evaluation-protocol.md 2>/dev/null || echo unknown)"
+  local first latest
+  first="$(git -C "$root" log --diff-filter=A --format=%h -- docs/design/evaluation-protocol.md 2>/dev/null | tail -1)"
+  latest="$(git -C "$root" log -1 --format=%h -- docs/design/evaluation-protocol.md 2>/dev/null)"
+  if [ -z "$first" ]; then protocol="unknown"
+  elif [ "$first" = "$latest" ]; then protocol="\`$first\`"
+  else protocol="\`$first\` (amended in \`$latest\`)"; fi
   dotnet run -c Release --project "$root/eval/StepUp.Eval" -- \
     --data "$data" --models "$root/models" --out "$root/docs" --protocol-commit "$protocol" "${sets[@]/#/--set=}"
 }
