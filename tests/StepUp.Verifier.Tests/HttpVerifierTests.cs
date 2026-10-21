@@ -170,4 +170,46 @@ public sealed class HttpVerifierBehaviourTests : IAsyncLifetime
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => With().AnalyzeAsync(Wav, Phrase, cts.Token));
     }
+
+    [Fact]
+    public async Task CreateClient_DoesNotFollowARedirect_SoAudioNeverLeavesTheConfiguredHost()
+    {
+        await using var elsewhere = await StubVerifierService.StartAsync();
+        stub.Override = _ => Results.Redirect(new Uri(elsewhere.Address, "v1/analyze").ToString(), permanent: false, preserveMethod: true);
+        using var hardened = HttpVerifier.CreateClient(stub.Address, TimeSpan.FromSeconds(5));
+        var verifier = new HttpVerifier(hardened, new HttpVerifierOptions("fake-verifier-v1", StubVerifierService.Key));
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => verifier.AnalyzeAsync(Wav, Phrase, Ct));
+
+        Assert.Equal(0, elsewhere.Calls);
+    }
+
+    [Fact]
+    public async Task CreateClient_RefusesAnOversizedAnswer()
+    {
+        // A complete, valid answer plus padding: only the size cap can reject it.
+        var padding = new string('x', HttpVerifier.MaxResponseBytes * 2);
+        var embedding = string.Join(',', Enumerable.Repeat("0.5", 256));
+        stub.Override = _ => Results.Content($$"""{"modelId":"fake-verifier-v1","reject":null,"embedding":[{{embedding}}],"transcript":"apple","padding":"{{padding}}"}""", "application/json");
+        using var hardened = HttpVerifier.CreateClient(stub.Address, TimeSpan.FromSeconds(5));
+        var verifier = new HttpVerifier(hardened, new HttpVerifierOptions("fake-verifier-v1", StubVerifierService.Key));
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => verifier.AnalyzeAsync(Wav, Phrase, Ct));
+    }
+
+    [Fact]
+    public async Task Analyze_RefusesAnEmbeddingLongerThanAnyRealModelProduces()
+    {
+        stub.Override = _ => Results.Json(new AnalyzeResponse("fake-verifier-v1", null, new float[HttpVerifier.MaxEmbeddingLength + 1], "x"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => With().AnalyzeAsync(Wav, Phrase, Ct));
+    }
+
+    [Fact]
+    public async Task Analyze_RefusesATranscriptLongerThanAPhrase()
+    {
+        stub.Override = _ => Results.Json(new AnalyzeResponse("fake-verifier-v1", null, new float[256], new string('a', HttpVerifier.MaxTranscriptLength + 1)));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => With().AnalyzeAsync(Wav, Phrase, Ct));
+    }
 }

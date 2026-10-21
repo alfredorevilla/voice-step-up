@@ -38,7 +38,7 @@ docker build . && docker compose up --wait
 ## Risks
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| ASR phrase check too slow or inaccurate on short random phrases | Medium | T3.1 go/no-go spike; phonetically distinct word list; a failed phrase check is a fail that falls back, never a lockout |
+| ASR phrase check too slow or inaccurate on short random phrases | Medium | T3.1 go/no-go spike; phonetically distinct word list; a failed phrase check is an ordinary failed voice attempt that offers the fallback at once; it counts toward the 5-failure delay, as the biometric-data rule requires, and quality rejections do not |
 | Native sherpa library does not load in the container | Medium | Debian-based ASP.NET image (not Alpine); load test in T3.6 |
 | Raw cosine scores separate poorly for some speakers | Medium | Thresholds and, only if the M6 protocol adopts it, cohort normalization from M6 (scores are never called calibrated) |
 

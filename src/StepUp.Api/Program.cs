@@ -48,7 +48,7 @@ switch (builder.Configuration["Verifier:Mode"] ?? "Sherpa")
 
         // The key comes from the environment (Verifier__Http__ApiKey), never from a file in the repo.
         var httpOptions = new HttpVerifierOptions(modelId, http["ApiKey"]);
-        builder.Services.AddSingleton<IVerifier>(_ => new HttpVerifier(new HttpClient { BaseAddress = endpoint, Timeout = TimeSpan.FromSeconds(30) }, httpOptions));
+        builder.Services.AddSingleton<IVerifier>(_ => new HttpVerifier(HttpVerifier.CreateClient(endpoint, TimeSpan.FromSeconds(30)), httpOptions));
         break;
     default:
         throw new InvalidOperationException("Verifier:Mode must be Sherpa, Http or Fake.");

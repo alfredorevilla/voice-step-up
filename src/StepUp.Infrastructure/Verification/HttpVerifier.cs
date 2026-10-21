@@ -23,6 +23,25 @@ public sealed partial class HttpVerifier(HttpClient http, HttpVerifierOptions op
 
     private static readonly HashSet<ReasonCode> QualityRejects = [ReasonCode.Muted, ReasonCode.TooShort, ReasonCode.Noisy];
 
+    /// <summary>Most bytes read from an answer. A real answer is a few kilobytes.</summary>
+    public const int MaxResponseBytes = 256 * 1024;
+
+    public const int MaxEmbeddingLength = 4096;
+
+    public const int MaxTranscriptLength = 1000;
+
+    /// <summary>
+    /// A client for the remote verifier: no redirects (a redirect would send the audio to another host), no proxy,
+    /// no cookies, a size cap on the answer and a timeout.
+    /// </summary>
+    public static HttpClient CreateClient(Uri baseAddress, TimeSpan timeout) =>
+        new(new SocketsHttpHandler { AllowAutoRedirect = false, UseProxy = false, UseCookies = false })
+        {
+            BaseAddress = baseAddress,
+            Timeout = timeout,
+            MaxResponseContentBufferSize = MaxResponseBytes,
+        };
+
     public string ModelId => options.ModelId;
 
     public async Task<VerifierResult> AnalyzeAsync(ReadOnlyMemory<byte> wav, string expectedPhrase, CancellationToken cancellationToken)
@@ -60,7 +79,9 @@ public sealed partial class HttpVerifier(HttpClient http, HttpVerifierOptions op
             return new VerifierResult(reason, null, null);
         }
 
-        if (body.Embedding is not { Length: > 0 } embedding || embedding.Any(x => !float.IsFinite(x)) || body.Transcript is null)
+        if (body.Embedding is not { Length: > 0 and <= MaxEmbeddingLength } embedding
+            || embedding.Any(x => !float.IsFinite(x))
+            || body.Transcript is not { Length: <= MaxTranscriptLength })
         {
             throw new InvalidOperationException("The verifier answer has no usable embedding and transcript.");
         }
