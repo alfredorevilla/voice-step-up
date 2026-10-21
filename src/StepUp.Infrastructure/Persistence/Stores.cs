@@ -251,9 +251,16 @@ public sealed class EnrollmentStore(IDbContextFactory<StepUpDbContext> factory, 
     {
         await using var db = await factory.CreateDbContextAsync(cancellationToken);
         var nowMs = Ms.Of(now);
-        var row = await db.Enrollments.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id && e.ExpiresAt > nowMs, cancellationToken);
+        var row = await db.Enrollments.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
         if (row is null)
         {
+            return null;
+        }
+
+        if (row.ExpiresAt <= nowMs)
+        {
+            // An expired enrollment still holds sample embeddings: remove it when it is touched.
+            await db.Enrollments.Where(e => e.Id == id).ExecuteDeleteAsync(cancellationToken);
             return null;
         }
 
@@ -265,6 +272,19 @@ public sealed class EnrollmentStore(IDbContextFactory<StepUpDbContext> factory, 
     {
         await using var db = await factory.CreateDbContextAsync(cancellationToken);
         await db.Enrollments.Where(e => e.Id == id).ExecuteDeleteAsync(cancellationToken);
+    }
+
+    public async Task DeleteForUserAsync(UserKey user, CancellationToken cancellationToken)
+    {
+        await using var db = await factory.CreateDbContextAsync(cancellationToken);
+        await db.Enrollments.Where(e => e.UserKey == user.Value).ExecuteDeleteAsync(cancellationToken);
+    }
+
+    public async Task PurgeExpiredAsync(DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        await using var db = await factory.CreateDbContextAsync(cancellationToken);
+        var nowMs = Ms.Of(now);
+        await db.Enrollments.Where(e => e.ExpiresAt <= nowMs).ExecuteDeleteAsync(cancellationToken);
     }
 }
 

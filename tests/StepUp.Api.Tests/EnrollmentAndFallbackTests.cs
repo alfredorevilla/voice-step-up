@@ -22,6 +22,53 @@ public sealed class EnrollmentAndFallbackTests : IDisposable
         return (client, body.GetProperty("enrollmentId").GetGuid(), [.. body.GetProperty("phrases").EnumerateArray().Select(p => p.GetString()!)]);
     }
 
+    private static async Task RecordAllSamplesAsync(HttpClient client, Guid id, string[] phrases)
+    {
+        foreach (var phrase in phrases)
+        {
+            var sample = await client.PostAsync($"/api/enrollment/sample?enrollmentId={id}", HttpExtensions.Wav(ApiFactory.Speech(1, phrase)), Ct);
+            sample.EnsureSuccessStatusCode();
+        }
+    }
+
+    [Fact]
+    public async Task Enroll_WithdrawThenComplete_ReturnsConsentMissingAndStoresNoVoiceprint()
+    {
+        var (client, id, phrases) = await StartedAsync();
+        using var _c = client;
+        await RecordAllSamplesAsync(client, id, phrases);
+
+        (await client.DeleteAsync("/api/voiceprint", Ct)).EnsureSuccessStatusCode();
+        var complete = await client.PostAsync($"/api/enrollment/complete?enrollmentId={id}", null, Ct);
+        var me = await (await client.GetAsync("/api/me", Ct)).JsonAsync();
+
+        Assert.Equal(HttpStatusCode.Forbidden, complete.StatusCode);
+        Assert.Equal("ConsentMissing", await complete.CodeAsync());
+        Assert.False(me.GetProperty("enrolled").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Enroll_WithdrawThenSample_ReturnsConsentMissing()
+    {
+        var (client, id, phrases) = await StartedAsync();
+        using var _c = client;
+
+        (await client.DeleteAsync("/api/voiceprint", Ct)).EnsureSuccessStatusCode();
+        var sample = await client.PostAsync($"/api/enrollment/sample?enrollmentId={id}", HttpExtensions.Wav(ApiFactory.Speech(1, phrases[0])), Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, sample.StatusCode);
+        Assert.Equal("ConsentMissing", await sample.CodeAsync());
+    }
+
+    [Fact]
+    public async Task Enroll_PhrasesComeFromTheEnrollmentWordlist()
+    {
+        var (client, _, phrases) = await StartedAsync();
+        using var _c = client;
+
+        Assert.All(phrases.SelectMany(p => p.Split(' ')), w => Assert.Contains(w, EnrollmentWordlist.Words));
+    }
+
     [Fact]
     public async Task Enroll_RequiresConsent()
     {

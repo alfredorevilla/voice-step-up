@@ -6,13 +6,18 @@ public static class PhraseGenerator
 {
     public const int WordsPerPhrase = 4;
 
-    /// <summary>Four words drawn with a CSPRNG, lowercase, space separated.</summary>
-    public static string Create()
+    /// <summary>Four challenge words drawn with a CSPRNG, lowercase, space separated.</summary>
+    public static string Create() => Draw(Wordlist.Words);
+
+    /// <summary>Four words from the separate enrollment list, so enrollment audio never contains a challenge word.</summary>
+    public static string CreateEnrollment() => Draw(EnrollmentWordlist.Words);
+
+    private static string Draw(string[] words)
     {
         var chosen = new string[WordsPerPhrase];
         for (var i = 0; i < chosen.Length; i++)
         {
-            chosen[i] = Wordlist.Words[RandomNumberGenerator.GetInt32(Wordlist.Words.Length)];
+            chosen[i] = words[RandomNumberGenerator.GetInt32(words.Length)];
         }
 
         return string.Join(' ', chosen);

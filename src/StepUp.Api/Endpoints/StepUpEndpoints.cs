@@ -74,16 +74,22 @@ public static class StepUpEndpoints
             return Problems.Create(StatusCodes.Status403Forbidden, ReasonCode.ConsentMissing);
         }
 
-        var phrases = Enumerable.Range(0, options.EnrollmentSamples).Select(_ => PhraseGenerator.Create()).ToList();
+        await enrollments.PurgeExpiredAsync(time.GetUtcNow(), ct);
+        var phrases = Enumerable.Range(0, options.EnrollmentSamples).Select(_ => PhraseGenerator.CreateEnrollment()).ToList();
         var state = new EnrollmentState(Guid.NewGuid(), user, phrases, [], time.GetUtcNow() + options.EnrollmentTtl);
         await enrollments.SaveAsync(state, ct);
         return Results.Ok(new { enrollmentId = state.Id, phrases, samplesNeeded = options.EnrollmentSamples });
     }
 
     private static async Task<IResult> AddSample(
-        HttpContext http, Guid enrollmentId, IEnrollmentStore enrollments, IVerifier verifier, VerifierGate gate, StepUpOptions options, TimeProvider time, CancellationToken ct)
+        HttpContext http, Guid enrollmentId, IConsentStore consents, IEnrollmentStore enrollments, IVerifier verifier, VerifierGate gate, StepUpOptions options, TimeProvider time, CancellationToken ct)
     {
         var user = Who(http).User;
+        if (!await consents.IsActiveAsync(user, ct))
+        {
+            return Problems.Create(StatusCodes.Status403Forbidden, ReasonCode.ConsentMissing);
+        }
+
         var state = await enrollments.GetAsync(enrollmentId, time.GetUtcNow(), ct);
 
         // Another user's id looks like a forbidden resource; an unknown or expired one is 404.
@@ -148,12 +154,18 @@ public static class StepUpEndpoints
     }
 
     private static async Task<IResult> CompleteEnrollment(
-        HttpContext http, Guid enrollmentId, IFallbackFactor fallback, IEnrollmentStore enrollments, IVoiceprintStore voiceprints, IVerifier verifier, StepUpOptions options, TimeProvider time, CancellationToken ct)
+        HttpContext http, Guid enrollmentId, IFallbackFactor fallback, IConsentStore consents, IEnrollmentStore enrollments, IVoiceprintStore voiceprints, IVerifier verifier, StepUpOptions options, TimeProvider time, CancellationToken ct)
     {
         var (caller, user) = Who(http);
         if (!fallback.Evaluate(caller).Fresh)
         {
             return Problems.Create(StatusCodes.Status403Forbidden, ReasonCode.FreshMfaRequired, fallback: true);
+        }
+
+        // Consent withdrawn mid-enrollment: nothing may be stored (biometric-data rule: consent before enrollment).
+        if (!await consents.IsActiveAsync(user, ct))
+        {
+            return Problems.Create(StatusCodes.Status403Forbidden, ReasonCode.ConsentMissing);
         }
 
         var state = await enrollments.GetAsync(enrollmentId, time.GetUtcNow(), ct);
@@ -189,10 +201,11 @@ public static class StepUpEndpoints
         return Results.Ok(new { enrolled = true });
     }
 
-    private static async Task<IResult> DeleteVoiceprint(HttpContext http, IVoiceprintStore voiceprints, IConsentStore consents, CancellationToken ct)
+    private static async Task<IResult> DeleteVoiceprint(HttpContext http, IVoiceprintStore voiceprints, IConsentStore consents, IEnrollmentStore enrollments, CancellationToken ct)
     {
         var user = Who(http).User;
         await voiceprints.DeleteAsync(user, ct);
+        await enrollments.DeleteForUserAsync(user, ct);
         await consents.WithdrawAsync(user, ct);
         return Results.NoContent();
     }

@@ -197,6 +197,50 @@ public sealed class StoreTests : IDisposable
     }
 
     [Fact]
+    public async Task Enrollment_DeleteForUser_RemovesOnlyThatUsersRows()
+    {
+        var store = _db.Get<IEnrollmentStore>();
+        var alice1 = Guid.NewGuid();
+        var alice2 = Guid.NewGuid();
+        var bob = Guid.NewGuid();
+        var later = _db.Time.GetUtcNow().AddMinutes(10);
+        await store.SaveAsync(new EnrollmentState(alice1, Alice, ["a"], [[1f]], later), Ct);
+        await store.SaveAsync(new EnrollmentState(alice2, Alice, ["a"], [[1f]], later), Ct);
+        await store.SaveAsync(new EnrollmentState(bob, new UserKey("bob"), ["a"], [[1f]], later), Ct);
+
+        await store.DeleteForUserAsync(Alice, Ct);
+
+        Assert.Null(await store.GetAsync(alice1, _db.Time.GetUtcNow(), Ct));
+        Assert.Null(await store.GetAsync(alice2, _db.Time.GetUtcNow(), Ct));
+        Assert.NotNull(await store.GetAsync(bob, _db.Time.GetUtcNow(), Ct));
+        await using var context = await _db.Get<IDbContextFactory<StepUpDbContext>>().CreateDbContextAsync(Ct);
+        Assert.Equal(1, await context.Enrollments.CountAsync(Ct));
+    }
+
+    [Fact]
+    public async Task Enrollment_ExpiredRowsAreDeleted_OnReadAndByPurge()
+    {
+        var store = _db.Get<IEnrollmentStore>();
+        var readExpired = Guid.NewGuid();
+        var purgeExpired = Guid.NewGuid();
+        var soon = _db.Time.GetUtcNow().AddMinutes(10);
+        await store.SaveAsync(new EnrollmentState(readExpired, Alice, ["a"], [[1f]], soon), Ct);
+        await store.SaveAsync(new EnrollmentState(purgeExpired, Alice, ["a"], [[1f]], soon), Ct);
+        _db.Time.Advance(TimeSpan.FromMinutes(11));
+
+        Assert.Null(await store.GetAsync(readExpired, _db.Time.GetUtcNow(), Ct));
+        await using (var context = await _db.Get<IDbContextFactory<StepUpDbContext>>().CreateDbContextAsync(Ct))
+        {
+            Assert.Equal(1, await context.Enrollments.CountAsync(Ct));
+        }
+
+        await store.PurgeExpiredAsync(_db.Time.GetUtcNow(), Ct);
+
+        await using var after = await _db.Get<IDbContextFactory<StepUpDbContext>>().CreateDbContextAsync(Ct);
+        Assert.Equal(0, await after.Enrollments.CountAsync(Ct));
+    }
+
+    [Fact]
     public async Task UsedAssertions_AcceptEachJtiOnce()
     {
         var store = _db.Get<IUsedAssertionStore>();

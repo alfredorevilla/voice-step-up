@@ -96,6 +96,12 @@ public interface IEnrollmentStore
     Task<EnrollmentState?> GetAsync(Guid id, DateTimeOffset now, CancellationToken cancellationToken);
 
     Task DeleteAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>Deletes every in-progress enrollment of this user (their sample embeddings included).</summary>
+    Task DeleteForUserAsync(UserKey user, CancellationToken cancellationToken);
+
+    /// <summary>Deletes enrollments whose time is up. Abandoned enrollments must not keep sample embeddings.</summary>
+    Task PurgeExpiredAsync(DateTimeOffset now, CancellationToken cancellationToken);
 }
 
 public interface IUsedAssertionStore

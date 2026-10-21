@@ -4,4 +4,8 @@
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="StepUp.Core.Tests" />
+  </ItemGroup>
+
 </Project>
