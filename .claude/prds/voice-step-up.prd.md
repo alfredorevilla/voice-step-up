@@ -73,10 +73,10 @@ We'll know we're right when a reviewer can run it with one command, read measure
 | M2 | Core domain, policy and API (fake verifier) | Step-up policy, single-use challenges, the signed vbm assertion, consent, deletion and the analyst log work end to end with a fake verifier. | M0, M1 | complete | [plan](../plans/voice-step-up.m2-core.plan.md) |
 | M3 | Real verifier and audio pipeline | Real speaker verification on CPU with phrase liveness and quality gates, running in a container. | M2 | complete | [plan](../plans/voice-step-up.m3-verifier.plan.md) |
 | M4 | SPA | A user can sign in, consent, enroll and step up from the browser, and the analyst can see attempts. | M2 | complete | [plan](../plans/voice-step-up.m4-spa.plan.md) |
-| M5 | Entra provisioning and live claims spike | Real Entra sign-in is provisioned and torn down by script, and the fallback acceptance rule is confirmed on the live tenant. | M2; needs the M0 Pre-flight | pending | [plan](../plans/voice-step-up.m5-entra.plan.md) |
+| M5 | Entra provisioning and live claims spike | Real Entra sign-in is provisioned and torn down by script, and the fallback acceptance rule is confirmed on the live tenant. | M2; needs the M0 Pre-flight | in-progress | [plan](../plans/voice-step-up.m5-entra.plan.md) |
 | M6 | FAR/FRR evaluation | False-accept and false-reject rates are reported over a public dataset, with limits stated. | M3 | complete | [plan](../plans/voice-step-up.m6-evaluation.plan.md) |
-| M7 | Edge cases and end-to-end tests | Every spec edge case is covered by a test that fails when the behaviour is removed, and the main flows run end to end in CI. | M3, M4, M5, M6 | complete | [plan](../plans/voice-step-up.m7-e2e.plan.md) |
-| M8 | Docs, threat model refresh and one-command demo | A reviewer can clone the repo, run one command, and read the architecture, threat model, results and honest limits. | M7 | pending | [plan](../plans/voice-step-up.m8-docs-demo.plan.md) |
+| M7 | Edge cases and end-to-end tests | Every spec edge case is covered by a test that fails when the behaviour is removed, and the main flows run end to end in CI. | M3, M4, M5, M6 | in-progress | [plan](../plans/voice-step-up.m7-e2e.plan.md) |
+| M8 | Docs, threat model refresh and one-command demo | A reviewer can clone the repo, run one command, and read the architecture, threat model, results and honest limits. | M7 | in-progress | [plan](../plans/voice-step-up.m8-docs-demo.plan.md) |
 
 ## Open Questions
 - [ ] Is a subscription available in the work tenant, and can the user register apps there? (answered by the M0 probe)
@@ -93,15 +93,19 @@ We'll know we're right when a reviewer can run it with one command, read measure
 
 ## Definition of Done
 Every item below must be checked. The text of each item lives in its milestone plan; this list is the complete union of the Acceptance lists of M0 to M8 (48 items). A completeness check compares the item ids in the plans with this list.
-- [ ] M0-A1, M0-A2, M0-A3, M0-A4
+- [x] M0-A1, M0-A3, M0-A4
+- [ ] M0-A2 (CI green after a push)
 - [x] M1-A1, M1-A2, M1-A3, M1-A4, M1-A5
 - [x] M2-A1, M2-A2, M2-A3, M2-A4, M2-A5, M2-A6, M2-A7, M2-A8, M2-A9
 - [x] M3-A1, M3-A2, M3-A3, M3-A4, M3-A5
 - [x] M4-A1, M4-A2, M4-A3, M4-A4, M4-A5
-- [ ] M5-A1, M5-A2, M5-A3, M5-A4, M5-A5
+- [x] M5-A1, M5-A3, M5-A4, M5-A5
+- [ ] M5-A2 (idempotent re-deploy over existing apps)
 - [x] M6-A1, M6-A2, M6-A3, M6-A4, M6-A5
-- [ ] M7-A1, M7-A2, M7-A3, M7-A4
-- [ ] M8-A1, M8-A2, M8-A3, M8-A4, M8-A5, M8-A6
+- [x] M7-A1, M7-A3, M7-A4
+- [ ] M7-A2 (e2e job green in CI after a push)
+- [x] M8-A1, M8-A2, M8-A3, M8-A5, M8-A6
+- [ ] M8-A4 (all CI jobs green after a push)
 - [ ] Project: all nine milestones are complete.
 - [ ] Project: every validation command in the plans passes.
 - [ ] Project: no secret, tenant identifier or raw audio is committed, history included.

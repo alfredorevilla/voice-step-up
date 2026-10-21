@@ -53,6 +53,8 @@ The loop ends when any one holds:
 
 ## Pending, needs user approval (rules panel, 2026-10-21)
 
+- **Blocks the push (found 2026-10-21 by the M8 fork):** the tenant id and the subscription id are in local history, in commits `f7da6dc` and `ee3b639` (removed from the tree later). The repository is public. Rewrite those commits (history scrub) before any push; this needs the user's decision. The Gmail address is also in older commits (removed from the tree only).
+
 Not applied because `.claude/settings.json` edits are classifier-gated:
 
 - Suggested `permissions.ask` entries for mutating `az`: `Bash(az ad app create*)`, `Bash(az ad * delete*)`, `Bash(az deployment *)`, `Bash(az ad app permission admin-consent*)`. This backs the prose rule in `entra-tenant-hygiene.md`.
