@@ -13,3 +13,4 @@ dist/
 *.log
 models/
 artifacts/
+data/
