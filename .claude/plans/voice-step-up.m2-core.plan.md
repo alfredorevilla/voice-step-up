@@ -4,19 +4,23 @@
 **Selected Milestone**: M2 Core domain, policy and API (fake verifier)
 **Complexity**: Medium
 **Depends on**: M0, M1
-**Plan status**: seed split from the earlier single plan on 2026-10-20. Before executing, re-ground Patterns to Mirror and Files to Change against the code that exists (`/ecc-plan` PRD mode) and update this file.
+**Plan status**: executed 2026-10-21. Patterns to Mirror and Files to Change were re-grounded against the M0 code before starting.
 
 ## Summary
 The service without real audio: domain interfaces, challenge and assertion logic, persistence, the API, a fake OIDC authority and a shared IVerifier contract test suite.
 
 ## Patterns to Mirror
-No application code exists yet, so there is nothing to mirror. Conventions come from the vendored skills, read when a task uses them.
+Re-grounded on 2026-10-21 against the M0 code (a `StepUp.Api` health endpoint, `StepUp.Core` and `StepUp.Infrastructure` with only marker types, xUnit v3 test projects). Conventions to follow are in `Directory.Build.props` (nullable, warnings as errors, latest-recommended analyzers), `.editorconfig` (tests relax CA1707 and CA1861), `tests/Directory.Build.props` (global `Xunit` using) and the lazy rules in `.claude/lazy/rules/`. The pattern M2 sets for later milestones: Core holds pure logic and interfaces, Infrastructure holds EF Core stores, Api holds endpoints and flow, tests use real SQLite in a temp directory and `WebApplicationFactory` over HTTP.
 
 ## Files to Change
 | Path | Action | Why |
 |---|---|---|
-| src/StepUp.Core, src/StepUp.Infrastructure, src/StepUp.Api, src/StepUp.FakeAuthority | CREATE | Service code |
-| tests/StepUp.Core.Tests, tests/StepUp.Api.Tests, tests/StepUp.Verifier.Tests (contract suite) | CREATE | xUnit v3 suites |
+| src/StepUp.Core (types, interfaces, challenge service, assertion service, fallback, lockout, WAV check, cosine) | CREATE | Pure domain logic |
+| src/StepUp.Infrastructure (EF Core stores, Data Protection, key files, `FakeVerifier` and `FakeAudio`) | CREATE | Persistence and the demo verifier |
+| src/StepUp.Api (auth modes, endpoints, `VerificationService`, `StepUpFilter`) | CREATE | HTTP surface |
+| src/StepUp.FakeAuthority | CREATE | Offline OIDC authority and token minter |
+| tests/StepUp.Core.Tests, tests/StepUp.Infrastructure.Tests, tests/StepUp.Api.Tests, tests/StepUp.Verifier.Tests (contract suite) | CREATE | xUnit v3 suites |
+| Directory.Packages.props, VoiceStepUp.slnx, .gitignore | MODIFY | Packages (with a pinned patched `System.Security.Cryptography.Pkcs`), projects, `data/` ignored |
 
 ## Tasks
 - **T2.1** Interfaces and types in `StepUp.Core`: `IVerifier`, `IChallengeService`, `IStepUpPolicy`, `IFallbackFactor`, `IVoiceprintStore`, `IAttemptLog`, `IConsentStore`, `IThresholdStore`; reason codes (Muted, TooShort, Noisy (also covers clipping), PhraseMismatch, BelowThreshold, Timeout, VerifierError, NoVoiceprint, ConsentMissing, ChallengeExpired, ChallengeConsumed, RateLimited, StepUpRequired, FreshMfaRequired, ReEnrollRequired, VerificationFailed). `IVerifier` returns the probe embedding and transcript; the Api scores. `ModelId` as defined in `docs/architecture.md` section 3.
@@ -26,6 +30,17 @@ No application code exists yet, so there is nothing to mirror. Conventions come 
 - **T2.5** API (`dotnet-webapi`; `Microsoft.Identity.Web` usage checked against Microsoft Learn MCP): `GET /api/me`; enrollment (`consent`, `start`, `sample`, `complete`); `DELETE /api/voiceprint`; `POST /api/stepup/challenge`, `POST /api/stepup/verify`; analyst `GET /api/analyst/attempts`, `GET|PUT /api/analyst/thresholds`; demo high-risk `POST /api/payouts`; `Auth:Mode` = Entra (`AddMicrosoftIdentityWebApi`, single tenant GUID, `Audience` = App ID URI, `RequiredScope`, `scp` and `roles` checks, reject app-only tokens) or Fake (`AddJwtBearer`, same `TokenValidationParameters` shape); `MapInboundClaims = false` in both; Fake mode starts only with an explicit demo flag in Development or on a loopback or compose network, and Entra mode never trusts the fake issuer; enrollment `start`/`complete` need fresh MFA; `/api/payouts` passes on a valid assertion OR `IFallbackFactor` fresh MFA (`amr` `mfa`/`ngcmfa` and `auth_time` within N minutes, default 10, missing `auth_time` fails closed), logged as `Mode=fallback`; one generic `VerificationFailed` to the client, score and threshold never returned (`Verify_FailResponse_IsUniform`); CORS allowlist of the SPA origin (`Cors_RejectsOtherOrigins`); per-user rate limits on `sample`, `challenge`, `verify`, a global verifier concurrency limit; `[RequiresStepUp]` policy; attempt limiting (after 5 consecutive failed voice attempts a delay of at least 30 s; after 50 voice is disabled for that user and the fallback is offered; these are the NIST SP 800-63B-4 section 3.2.3.3 limits for a system without presentation attack detection, configurable) plus general rate limiting; fail-closed verifier timeout (default 3 s) returning the fallback instruction.
 - **T2.6** `StepUp.FakeAuthority`: discovery, JWKS, authorize/token for the SPA, and a token-mint helper for tests (claims `oid`, `tid`, `amr`, `auth_time`, `roles`). Supports PKCE and CORS on its token endpoint; its authorize endpoint honors a `claims` parameter asking for `ngcmfa` by issuing `amr` that includes `ngcmfa` and a fresh `auth_time`. Signing key generated per run.
 - **T2.7** Abstract `IVerifier` contract test suite, run against a `FakeVerifier`.
+
+## Decisions made during M2
+A fork ran this milestone and could not convene a panel; each decision below is recorded for the next review.
+- Payout assertions are bound to `amount` and `to` at verify time (`ph`); a mismatching presentation is refused without consuming the assertion.
+- A deleted voiceprint answers `NoVoiceprint` before `ConsentMissing`, because `DELETE /api/voiceprint` also withdraws consent.
+- Entra mode adds a `tid` equals configured-tenant check to the user policy on top of Identity.Web's issuer validation.
+- The Entra-mode unit tests stub Identity.Web's issuer validator (it fetches Entra metadata over the network); the real validator is exercised in M5 T5.4.
+- Test configuration uses `UseSetting`, not `AddInMemoryCollection`, because `Program.cs` reads configuration before the factory's overrides apply.
+- A patched `System.Security.Cryptography.Pkcs` is pinned centrally (transitive pinning) rather than suppressing NU1902 and NU1903.
+- Transport: audio is the raw `audio/wav` body with identifiers in the query string, which avoids multipart and antiforgery handling.
+- Known limits: expired challenges, enrollments and used assertions are not purged yet; parallel verifications can overrun the lockout by at most the open-challenge cap (3); the Data Protection key ring and the signing key share a directory without OS-level encryption.
 
 ## Validation
 ```bash
@@ -40,15 +55,15 @@ dotnet build && dotnet test   # via run-tests
 | Fake mode reaches a real deployment, or the fallback trusts stale MFA | Medium | M2-A8 and M2-A9 tests |
 
 ## Acceptance
-- [ ] M2-A1. Challenge phrases are single use, expire after the TTL, and are bound to user and action (tests).
-- [ ] M2-A2. A step-up assertion is rejected when tampered, expired, replayed, issued to another user, or presented without a valid bearer token (tests).
-- [ ] M2-A3. The analyst endpoints return 403 without the Analyst role and list score, result and reason per attempt.
-- [ ] M2-A4. A verifier timeout or error returns the fallback instruction and never a pass (test).
-- [ ] M2-A5. Deleting a voiceprint removes the embedding row and later step-up attempts get ReasonCode `NoVoiceprint` (test).
-- [ ] M2-A6. Test and runtime configuration switch between Entra and the fake authority with no code change.
-- [ ] M2-A7. After 5 consecutive failed voice attempts a user must wait at least 30 s before the next; after 50 voice is disabled for that user and the fallback is offered (tests; the limits are configurable).
-- [ ] M2-A8. Enrollment start and complete are refused without fresh MFA (`FreshMfaRequired`); the fallback is accepted only with `amr` `mfa`/`ngcmfa` and a recent `auth_time`, and rejected when stale, missing or without MFA (tests: `Enroll_RequiresFreshMfa`, `Fallback_AcceptsFreshMfa`, `Fallback_RejectsStaleAuthTime`, `Fallback_RejectsMissingAuthTime`, `Fallback_RejectsAmrWithoutMfa`).
-- [ ] M2-A9. Fake mode is refused outside a demo and Entra mode rejects the fake issuer; an assertion is rejected for another action, a changed payload, a reuse, a bad algorithm or unknown `kid` (tests: `Startup_RefusesFakeModeOutsideDemo`, `EntraMode_RejectsFakeIssuerToken`, the T2.3 assertion tests).
+- [x] M2-A1. Challenge phrases are single use, expire after the TTL, and are bound to user and action (tests). Evidence: Core `Challenge_*` tests, API `Challenge_IsSingleUse_OverHttp`, `Challenge_ExpiresAfterTheTtl_OverHttp`, `Challenge_RejectsAnotherUsersChallengeAndAnotherAction`; real-store `Challenge_ConcurrentConsume_OnlyOneSucceeds_OnTheRealStore`.
+- [x] M2-A2. A step-up assertion is rejected when tampered, expired, replayed, issued to another user, or presented without a valid bearer token (tests). Evidence: Core `Assertion_*` (tamper, expired, wrong user, replay, alg none, HS256, unknown kid, Entra token), API `Payout_*` (replay, other user, no bearer, changed payload), `Bearer_RejectsStepUpAssertion`.
+- [x] M2-A3. The analyst endpoints return 403 without the Analyst role and list score, result and reason per attempt. Evidence: `Analyst_EndpointsRejectUserRole`, `Analyst_SeesScoreResultAndReasonPerAttempt`.
+- [x] M2-A4. A verifier timeout or error returns the fallback instruction and never a pass (test). Evidence: `Verify_FailsClosedOnVerifierError`, `Verify_FailsClosedOnTimeout`.
+- [x] M2-A5. Deleting a voiceprint removes the embedding row and later step-up attempts get ReasonCode `NoVoiceprint` (test). Evidence: `Delete_LeavesNoEmbeddingBytesInDbFile`, `Verify_AfterDelete_ReturnsNoVoiceprint`.
+- [x] M2-A6. Test and runtime configuration switch between Entra and the fake authority with no code change. Evidence: The whole API suite runs in Fake mode; `EntraMode_*` tests run the same pipeline in Entra mode; the switch is `Auth:Mode`.
+- [x] M2-A7. After 5 consecutive failed voice attempts a user must wait at least 30 s before the next; after 50 voice is disabled for that user and the fallback is offered (tests; the limits are configurable). Evidence: `Attempts_DelayAfter5_AndDisableAfter50`, `Attempts_ResetOnSuccess`, `Attempts_QualityRejectsDoNotCountTowardTheLimit`, Core `Attempts_*`.
+- [x] M2-A8. Enrollment start and complete are refused without fresh MFA (`FreshMfaRequired`); the fallback is accepted only with `amr` `mfa`/`ngcmfa` and a recent `auth_time`, and rejected when stale, missing or without MFA (tests: `Enroll_RequiresFreshMfa`, `Fallback_AcceptsFreshMfa`, `Fallback_RejectsStaleAuthTime`, `Fallback_RejectsMissingAuthTime`, `Fallback_RejectsAmrWithoutMfa`). Evidence: `Enroll_RequiresFreshMfa`, `Fallback_AcceptsFreshMfa`, `Fallback_RejectsStaleAuthTime`, `Fallback_RejectsMissingAuthTime`, `Fallback_RejectsAmrWithoutMfa` (API and Core).
+- [x] M2-A9. Fake mode is refused outside a demo and Entra mode rejects the fake issuer; an assertion is rejected for another action, a changed payload, a reuse, a bad algorithm or unknown `kid` (tests: `Startup_RefusesFakeModeOutsideDemo`, `EntraMode_RejectsFakeIssuerToken`, the T2.3 assertion tests). Evidence: `Startup_RefusesFakeModeOutsideDemo`, `EntraMode_RejectsFakeIssuerToken`, `Assertion_RejectsWrongAction`, `Assertion_RejectsChangedPayload`, `Assertion_IsSingleUse`, `Assertion_RejectsAlgNone`, `Assertion_RejectsHs256`, `Assertion_RejectsUnknownKid`.
 
 ## Finish
 Use `/goal` (fix all medium and higher or blocking issues found and ensure all plan acceptance criteria items are done) or turn eq 3 (a fix loop capped at 3 turns). Then use `/code-review` (ECC's). `/goal` exists nowhere on this machine as of 2026-10-20 (no command file, skill or plugin entry), so the 3-turn fix loop is the Finish step. It is deliberately not in the Tooling table, so it cannot halt the pre-execution gate.

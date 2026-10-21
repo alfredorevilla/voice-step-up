@@ -171,15 +171,15 @@ All endpoints need `Authorization: Bearer <access token>` unless stated. Errors 
 | `GET /api/me` | user | none | 200 `{ oid, tid, name, enrolled, consent }` | 401 |
 | `POST /api/enrollment/consent` | user | `{ textVersion }` | 204 | 401, 409 already given |
 | `POST /api/enrollment/start` | user, fresh MFA | none | 200 `{ enrollmentId, phrases[], samplesNeeded }` | 401, 403 `ConsentMissing` `FreshMfaRequired` |
-| `POST /api/enrollment/sample` | user | `enrollmentId` + WAV (PCM16 mono 16 kHz, max 10 s, max 1 MB) | 200 `{ accepted, reason? }` | 400 `TooShort` `Muted` `Noisy` `PhraseMismatch`, 403 other user's enrollment id, 413, 415, 429 |
-| `POST /api/enrollment/complete` | user, fresh MFA | `{ enrollmentId }` | 200 `{ enrolled: true }` | 403 `FreshMfaRequired`, 409 not enough samples, 422 inconsistent speakers |
+| `POST /api/enrollment/sample` | user | query `enrollmentId`; body `audio/wav` (PCM16 mono 16 kHz, max 10 s, max 1 MB) | 200 `{ accepted, reason? }` | 400 `TooShort` `Muted` `Noisy` `PhraseMismatch`, 403 other user's enrollment id, 413, 415, 429 |
+| `POST /api/enrollment/complete` | user, fresh MFA | query `enrollmentId` | 200 `{ enrolled: true }` | 403 `FreshMfaRequired`, 409 not enough samples, 422 inconsistent speakers |
 | `DELETE /api/voiceprint` | user | none | 204 (deletes embedding, withdraws consent) | 401 |
 | `POST /api/stepup/challenge` | user | `{ action }` | 200 `{ challengeId, phrase, expiresAt }` | 403 `NoVoiceprint` `ConsentMissing` `ReEnrollRequired`, 429 `RateLimited` |
-| `POST /api/stepup/verify` | user | `challengeId` + WAV | 200 `{ assertion, expiresAt }` on pass; 422 `{ code: VerificationFailed, fallback }` on fail | 400 audio reasons, 410 `ChallengeExpired` `ChallengeConsumed`, 429 `RateLimited`, 503 `VerifierError` `Timeout` with fallback instruction |
+| `POST /api/stepup/verify` | user | query `challengeId`, `action`, and for `payout` also `amount` and `to`; body `audio/wav` | 200 `{ assertion, expiresAt }` on pass; 422 `{ code: VerificationFailed, fallback }` on fail | 400 audio reasons, 410 `ChallengeExpired` `ChallengeConsumed`, 429 `RateLimited`, 503 `VerifierError` `Timeout` with fallback instruction |
 | `GET /api/analyst/attempts` | analyst role | query: `from`, `to`, `result`, paging | 200 list of attempts | 401, 403 |
 | `GET /api/analyst/thresholds` | analyst role | none | 200 thresholds | 401, 403 |
 | `PUT /api/analyst/thresholds` | analyst role | `{ name, value }` | 200 | 400 out of range, 401, 403 |
-| `POST /api/payouts` | user + step-up | `{ amount, to }` and `X-StepUp-Assertion` or a fresh-MFA bearer | 200 | 403 `StepUpRequired` |
+| `POST /api/payouts` | user + step-up | `{ amount, to }` and `X-StepUp-Assertion` (bound to the same amount and payee) or a fresh-MFA bearer | 200 | 403 `StepUpRequired` |
 | `GET /healthz` | none | none | 200 `{ status: "ok" }` | none |
 
 Reason codes: `Muted`, `TooShort`, `Noisy` (also covers clipping), `PhraseMismatch`, `BelowThreshold`, `Timeout`, `VerifierError`, `NoVoiceprint`, `ConsentMissing`, `ChallengeExpired`, `ChallengeConsumed`, `RateLimited`, `StepUpRequired`, `FreshMfaRequired`, `ReEnrollRequired`, `VerificationFailed`. The client sees only `VerificationFailed` for `PhraseMismatch` and `BelowThreshold`; both checks always run, so timing does not tell them apart. The detail goes to the attempt log.
@@ -187,6 +187,8 @@ Reason codes: `Muted`, `TooShort`, `Noisy` (also covers clipping), `PhraseMismat
 Step-up assertion (D5, ADR-0005): JWT, header `typ` = `stepup+jwt`, `alg` = ES256, `kid`; claims `iss` = this service, `aud` = the service's step-up audience (never the Entra App ID URI), `sub` = `oid`, `tid`, `amr: ["vbm"]`, `act` = action, optional `ph` = hash of `amount` and `to`, `jti`, `iat`, `exp` (5 minutes). The handler uses only the service's own key set, accepts only ES256, and rejects `none`, HS256 and unknown `kid`. It is single use (`UsedAssertions`) and valid only with a bearer for the same `oid` and `tid`. The signing key is generated at first start, protected with Data Protection in the key-ring volume, never in the repo or image; rotation is manual (a demo limit).
 
 Attempt limits (NIST SP 800-63B-4 section 3.2.3.3 for a system without presentation attack detection, configurable): after 5 consecutive failed voice attempts a delay of at least 30 s; after 50, voice is disabled for that user and the fallback is offered. The counter resets on any successful step-up. A disabled user is re-enabled by re-enrolling with fresh MFA. A quality rejection does not consume the challenge but counts toward the general rate limit. Per-user rate limits apply to `sample`, `challenge` and `verify`; open challenges per user are capped; a global verifier concurrency limit answers 429. A per-IP limit is secondary only.
+
+Settled in M2: the verify call for `payout` carries `amount` and `to`, so the issued assertion has `ph` and cannot pay anything else. A presented assertion that does not match is refused without being consumed, so the user who stepped up can still use it for the matching request. Parallel verifications are limited only by the open-challenge cap (3), so a lockout can be overrun by at most that many in-flight attempts; this is a stated limit.
 
 ## 5. Verifier and replay resistance
 

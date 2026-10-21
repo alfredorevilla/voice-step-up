@@ -70,7 +70,7 @@ We'll know we're right when a reviewer can run it with one command, read measure
 |---|---|---|---|---|---|
 | M0 | Foundation and probe | A buildable, tested, CI-checked repo, and a recorded read-only check of what the tenant allows. | none | in-progress | [plan](../plans/voice-step-up.m0-foundation.plan.md) |
 | M1 | Design: architecture, ADRs and design-level threat model | A reviewed architecture, decision records and design-level threat model that the parallel milestones build against. | none (runs alongside M0) | complete | [plan](../plans/voice-step-up.m1-design.plan.md) |
-| M2 | Core domain, policy and API (fake verifier) | Step-up policy, single-use challenges, the signed vbm assertion, consent, deletion and the analyst log work end to end with a fake verifier. | M0, M1 | pending | [plan](../plans/voice-step-up.m2-core.plan.md) |
+| M2 | Core domain, policy and API (fake verifier) | Step-up policy, single-use challenges, the signed vbm assertion, consent, deletion and the analyst log work end to end with a fake verifier. | M0, M1 | complete | [plan](../plans/voice-step-up.m2-core.plan.md) |
 | M3 | Real verifier and audio pipeline | Real speaker verification on CPU with phrase liveness and quality gates, running in a container. | M2 | pending | [plan](../plans/voice-step-up.m3-verifier.plan.md) |
 | M4 | SPA | A user can sign in, consent, enroll and step up from the browser, and the analyst can see attempts. | M2 | pending | [plan](../plans/voice-step-up.m4-spa.plan.md) |
 | M5 | Entra provisioning and live claims spike | Real Entra sign-in is provisioned and torn down by script, and the fallback acceptance rule is confirmed on the live tenant. | M2; needs the M0 Pre-flight | pending | [plan](../plans/voice-step-up.m5-entra.plan.md) |
@@ -95,7 +95,7 @@ We'll know we're right when a reviewer can run it with one command, read measure
 Every item below must be checked. The text of each item lives in its milestone plan; this list is the complete union of the Acceptance lists of M0 to M8 (48 items). A completeness check compares the item ids in the plans with this list.
 - [ ] M0-A1, M0-A2, M0-A3, M0-A4
 - [x] M1-A1, M1-A2, M1-A3, M1-A4, M1-A5
-- [ ] M2-A1, M2-A2, M2-A3, M2-A4, M2-A5, M2-A6, M2-A7, M2-A8, M2-A9
+- [x] M2-A1, M2-A2, M2-A3, M2-A4, M2-A5, M2-A6, M2-A7, M2-A8, M2-A9
 - [ ] M3-A1, M3-A2, M3-A3, M3-A4, M3-A5
 - [ ] M4-A1, M4-A2, M4-A3, M4-A4, M4-A5
 - [ ] M5-A1, M5-A2, M5-A3, M5-A4, M5-A5
