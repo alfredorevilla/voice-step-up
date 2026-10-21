@@ -47,7 +47,7 @@ public class ChallengeServiceTests
     }
 
     [Fact]
-    public async Task Challenge_ExpiresAfterTtl()
+    public async Task Challenge_ExpiresAfter60s()
     {
         var service = Create(new ChallengeOptions { Ttl = TimeSpan.FromSeconds(60) });
         var challenge = (await service.IssueAsync(Alice, "payout", TestContext.Current.CancellationToken)).Challenge!;

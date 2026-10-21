@@ -17,7 +17,7 @@ public sealed class StoreTests : IDisposable
     public void Dispose() => _db.Dispose();
 
     [Fact]
-    public async Task Voiceprint_RoundTripsAndIsEncryptedAtRest()
+    public async Task Embedding_IsEncryptedAtRest()
     {
         float[] embedding = [0.25f, -0.5f, 0.125f, 0.75f];
         await _db.Get<IVoiceprintStore>().ReplaceAsync(new Voiceprint(Alice, "model-1", embedding, _db.Time.GetUtcNow()), Ct);

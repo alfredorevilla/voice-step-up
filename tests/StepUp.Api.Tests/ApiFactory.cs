@@ -86,6 +86,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
                 ["StepUp:ChallengePerMinute"] = "1000",
                 ["StepUp:VerifyPerMinute"] = "1000",
                 ["StepUp:SamplePerMinute"] = "1000",
+                ["StepUp:GeneralPerMinute"] = "100000",
             };
             foreach (var (key, value) in _extra)
             {

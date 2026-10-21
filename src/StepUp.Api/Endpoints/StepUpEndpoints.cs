@@ -15,7 +15,7 @@ public static class StepUpEndpoints
 
         api.MapGet("/me", Me);
         api.MapPost("/enrollment/consent", GiveConsent);
-        api.MapPost("/enrollment/start", StartEnrollment);
+        api.MapPost("/enrollment/start", StartEnrollment).RequireRateLimiting("challenge");
         api.MapPost("/enrollment/sample", AddSample).RequireRateLimiting("sample");
         api.MapPost("/enrollment/complete", CompleteEnrollment);
         api.MapDelete("/voiceprint", DeleteVoiceprint);
@@ -206,15 +206,15 @@ public static class StepUpEndpoints
         }
 
         var user = Who(http).User;
-        if (!await consents.IsActiveAsync(user, ct))
-        {
-            return Problems.Create(StatusCodes.Status403Forbidden, ReasonCode.ConsentMissing, fallback: true);
-        }
-
         var voiceprint = await voiceprints.GetAsync(user, ct);
         if (voiceprint is null)
         {
             return Problems.Create(StatusCodes.Status403Forbidden, ReasonCode.NoVoiceprint, fallback: true);
+        }
+
+        if (!await consents.IsActiveAsync(user, ct))
+        {
+            return Problems.Create(StatusCodes.Status403Forbidden, ReasonCode.ConsentMissing, fallback: true);
         }
 
         if (voiceprint.ModelId != verifier.ModelId)
@@ -228,13 +228,13 @@ public static class StepUpEndpoints
             : Problems.Create(StatusCodes.Status429TooManyRequests, issued.Reason!.Value);
     }
 
-    private static async Task<IResult> Verify(HttpContext http, Guid challengeId, string action, string? amount, string? to, VerificationService verification, CancellationToken ct)
+    private static async Task<IResult> Verify(HttpContext http, Guid challengeId, string action, string? amount, string? to, VerificationService verification, StepUpOptions options, CancellationToken ct)
     {
         // A payout assertion is bound to its amount and payee, so one voice pass cannot pay something else (TM-006).
         string? payloadHash = null;
         if (action == "payout")
         {
-            if (!decimal.TryParse(amount, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var parsed) || parsed <= 0 || string.IsNullOrWhiteSpace(to))
+            if (!decimal.TryParse(amount, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var parsed) || parsed <= 0 || string.IsNullOrWhiteSpace(to) || to.Length > options.MaxPayeeLength)
             {
                 return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "A payout step-up needs amount and to.");
             }
@@ -259,8 +259,8 @@ public static class StepUpEndpoints
     }
 
     [RequiresStepUp("payout")]
-    private static IResult Payout(PayoutRequest body) =>
-        body.Amount <= 0 || string.IsNullOrWhiteSpace(body.To)
+    private static IResult Payout(PayoutRequest body, StepUpOptions options) =>
+        body.Amount <= 0 || string.IsNullOrWhiteSpace(body.To) || body.To.Length > options.MaxPayeeLength
             ? Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "amount and to are required.")
             : Results.Ok(new { status = "accepted", amount = body.Amount, to = body.To });
 

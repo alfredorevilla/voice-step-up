@@ -51,7 +51,7 @@ public sealed class LockoutTests : IDisposable
     }
 
     [Fact]
-    public async Task Attempts_SuccessResetsTheCounter()
+    public async Task Attempts_ResetOnSuccess()
     {
         await Flows.EnrollAsync(_api, Users.Alice, 1);
         using var client = _api.ClientFor(_api.TokenFor(Users.Alice));

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.TestHost;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -219,6 +220,41 @@ public sealed class AuthModeTests
         Assert.Contains(ApiFactory.SpaOrigin, allowed.Headers.GetValues("Access-Control-Allow-Origin"));
         Assert.False(evil.Headers.Contains("Access-Control-Allow-Origin"));
         Assert.False(simple.Headers.Contains("Access-Control-Allow-Origin"));
+    }
+
+    [Fact]
+    public async Task RateLimits_ApplyPerUser_AndGeneralCeilingHolds()
+    {
+        using var api = new ApiFactory(config: new() { ["StepUp:GeneralPerMinute"] = "5", ["StepUp:ChallengePerMinute"] = "2" });
+        using var alice = api.ClientFor(api.TokenFor(FakeDirectory.Users["alice"]));
+        using var bob = api.ClientFor(api.TokenFor(FakeDirectory.Users["bob"]));
+
+        var statuses = new List<HttpStatusCode>();
+        for (var i = 0; i < 7; i++)
+        {
+            statuses.Add((await alice.GetAsync("/api/me", Ct)).StatusCode);
+        }
+
+        // Alice used her ceiling; Bob is a different partition and is unaffected.
+        Assert.Equal(5, statuses.Count(s => s == HttpStatusCode.OK));
+        Assert.Equal(2, statuses.Count(s => s == HttpStatusCode.TooManyRequests));
+        Assert.Equal(HttpStatusCode.OK, (await bob.GetAsync("/api/me", Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Enrollment_StartIsRateLimitedPerUser()
+    {
+        using var api = new ApiFactory(config: new() { ["StepUp:ChallengePerMinute"] = "2" });
+        using var client = api.ClientFor(api.FreshMfa(FakeDirectory.Users["alice"]));
+        await client.PostAsJsonAsync("/api/enrollment/consent", new { textVersion = "v1" }, Ct);
+
+        var codes = new List<HttpStatusCode>();
+        for (var i = 0; i < 4; i++)
+        {
+            codes.Add((await client.PostAsync("/api/enrollment/start", null, Ct)).StatusCode);
+        }
+
+        Assert.Equal([HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.TooManyRequests, HttpStatusCode.TooManyRequests], codes);
     }
 
     [Fact]

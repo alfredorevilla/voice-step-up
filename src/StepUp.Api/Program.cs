@@ -56,9 +56,16 @@ builder.Services.AddRateLimiter(o =>
         await Problems.Create(StatusCodes.Status429TooManyRequests, ReasonCode.RateLimited, fallback: true).ExecuteAsync(context.HttpContext);
     };
 
-    // Per user (the stated attacker holds a valid token); per-IP is secondary and not configured here.
+    // Per user (the stated attacker holds a valid token); the address is only the key for anonymous callers.
+    static string Key(HttpContext context) =>
+        context.User.FindFirstValue("oid") ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous";
+
+    o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context => RateLimitPartition.GetFixedWindowLimiter(
+        Key(context),
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = options.GeneralPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+
     void Add(string name, int permits) => o.AddPolicy(name, context => RateLimitPartition.GetFixedWindowLimiter(
-        context.User.FindFirstValue("oid") ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+        Key(context),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = permits, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
     Add("sample", options.SamplePerMinute);
     Add("challenge", options.ChallengePerMinute);

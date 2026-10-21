@@ -25,15 +25,15 @@ public sealed class VerificationService(
 {
     public async Task<VerifyOutcome> VerifyAsync(Caller caller, UserKey user, Guid challengeId, string action, string? payloadHash, ReadOnlyMemory<byte> wav, CancellationToken cancellationToken)
     {
-        if (!await consents.IsActiveAsync(user, cancellationToken))
-        {
-            return Refuse(403, ReasonCode.ConsentMissing);
-        }
-
         var voiceprint = await voiceprints.GetAsync(user, cancellationToken);
         if (voiceprint is null)
         {
             return Refuse(403, ReasonCode.NoVoiceprint);
+        }
+
+        if (!await consents.IsActiveAsync(user, cancellationToken))
+        {
+            return Refuse(403, ReasonCode.ConsentMissing);
         }
 
         if (voiceprint.ModelId != verifier.ModelId)

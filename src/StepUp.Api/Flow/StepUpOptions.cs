@@ -31,6 +31,11 @@ public sealed class StepUpOptions
 
     public int SamplePerMinute { get; set; } = 30;
 
+    /// <summary>General per-user (or per-address, when anonymous) ceiling across all endpoints.</summary>
+    public int GeneralPerMinute { get; set; } = 600;
+
+    public int MaxPayeeLength { get; set; } = 200;
+
     public LockoutOptions Lockout { get; set; } = new();
 
     public ChallengeOptions Challenge { get; set; } = new();

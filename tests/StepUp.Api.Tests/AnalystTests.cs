@@ -54,29 +54,49 @@ public sealed class AnalystTests : IDisposable
     private const System.Text.Json.JsonValueKind JsonValueKindNull = System.Text.Json.JsonValueKind.Null;
 
     [Fact]
-    public async Task Thresholds_AreSeededAndOnlyChangeThroughTheApiWithinBounds()
+    public async Task Thresholds_AreSeeded()
     {
         using var analyst = AnalystClient();
+
         var seeded = await (await analyst.GetAsync("/api/analyst/thresholds", Ct)).JsonAsync();
 
-        var tooHigh = await analyst.PutAsJsonAsync("/api/analyst/thresholds", new { name = "stepup", value = 1.5 }, Ct);
-        var tooLow = await analyst.PutAsJsonAsync("/api/analyst/thresholds", new { name = "stepup", value = 0.01 }, Ct);
-        var nan = await analyst.PutAsJsonAsync("/api/analyst/thresholds", new { name = "other", value = 0.5 }, Ct);
+        Assert.Equal("seed", seeded[0].GetProperty("updatedBy").GetString());
+        Assert.Equal(0.8, seeded[0].GetProperty("value").GetDouble());
+    }
+
+    [Theory]
+    [InlineData("stepup", 1.5)]
+    [InlineData("stepup", 0.01)]
+    [InlineData("stepup", -1.0)]
+    [InlineData("other", 0.5)]
+    public async Task Thresholds_RejectOutOfRange(string name, double value)
+    {
+        using var analyst = AnalystClient();
+
+        var response = await analyst.PutAsJsonAsync("/api/analyst/thresholds", new { name, value }, Ct);
+        var after = await (await analyst.GetAsync("/api/analyst/thresholds", Ct)).JsonAsync();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(1, after.GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Thresholds_RecordUpdatedBy()
+    {
+        using var analyst = AnalystClient();
+
         var ok = await analyst.PutAsJsonAsync("/api/analyst/thresholds", new { name = "stepup", value = 0.9 }, Ct);
         var after = await (await analyst.GetAsync("/api/analyst/thresholds", Ct)).JsonAsync();
 
-        Assert.Equal("seed", seeded[0].GetProperty("updatedBy").GetString());
-        Assert.Equal(HttpStatusCode.BadRequest, tooHigh.StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, tooLow.StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, nan.StatusCode);
         Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
         Assert.Equal(2, after.GetArrayLength());
         Assert.Equal(Users.Analyst.Oid, after[0].GetProperty("updatedBy").GetString());
         Assert.Equal(0.9, after[0].GetProperty("value").GetDouble());
+        Assert.Equal("seed", after[1].GetProperty("updatedBy").GetString());
     }
 
     [Fact]
-    public async Task Thresholds_ComeFromTheStore_NotFromCode()
+    public async Task Thresholds_NotHardcoded()
     {
         await Flows.EnrollAsync(_api, Users.Alice, 1);
         using var alice = _api.ClientFor(_api.TokenFor(Users.Alice));

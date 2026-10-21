@@ -194,14 +194,40 @@ public sealed class StepUpFlowTests : IDisposable
     }
 
     [Fact]
-    public async Task Challenge_RequiresConsentAndAVoiceprint()
+    public async Task Challenge_RequiresAVoiceprint()
     {
         using var client = _api.ClientFor(_api.TokenFor(Users.Alice));
 
         var response = await client.PostAsJsonAsync("/api/stepup/challenge", new { action = "payout" }, Ct);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("NoVoiceprint", await response.CodeAsync());
+    }
+
+    [Fact]
+    public async Task Challenge_RequiresConsent_WhenAVoiceprintExists()
+    {
+        using var client = await EnrolledAlice();
+        await _api.Services.GetRequiredService<IConsentStore>().WithdrawAsync(
+            _api.Services.GetRequiredService<IUserKeyHasher>().Hash(FakeDirectory.FakeTid, Users.Alice.Oid), Ct);
+
+        var response = await client.PostAsJsonAsync("/api/stepup/challenge", new { action = "payout" }, Ct);
+
         Assert.Equal("ConsentMissing", await response.CodeAsync());
+    }
+
+    [Fact]
+    public async Task Verify_RejectsPhraseMismatch()
+    {
+        using var client = await EnrolledAlice();
+        var (id, _) = await Flows.ChallengeAsync(client);
+        var response = await Flows.VerifyAsync(client, id, ApiFactory.Speech(1, "bamboo basket beacon bridge"));
+        using var analyst = _api.ClientFor(_api.TokenFor(Users.Analyst));
+
+        var attempts = await (await analyst.GetAsync("/api/analyst/attempts", Ct)).JsonAsync();
+
+        Assert.Equal("VerificationFailed", await response.CodeAsync());
+        Assert.Equal("PhraseMismatch", attempts[0].GetProperty("reason").GetString());
     }
 
     [Fact]
@@ -275,8 +301,8 @@ public sealed class StepUpFlowTests : IDisposable
         var challenge = await client.PostAsJsonAsync("/api/stepup/challenge", new { action = "payout" }, Ct);
 
         Assert.Equal(HttpStatusCode.Forbidden, verify.StatusCode);
-        Assert.Equal("ConsentMissing", await verify.CodeAsync());
-        Assert.Equal(HttpStatusCode.Forbidden, challenge.StatusCode);
+        Assert.Equal("NoVoiceprint", await verify.CodeAsync());
+        Assert.Equal("NoVoiceprint", await challenge.CodeAsync());
     }
 
     [Fact]
