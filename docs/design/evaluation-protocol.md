@@ -93,3 +93,11 @@ Limits stated in advance:
 ## 8. Reproduction
 
 `scripts/eval.sh` fetches and checks the data, builds the tool, runs the protocol and writes `docs/eval-report.md` plus the CSV files under `docs/eval/`. Required tools: `dotnet`, `ffmpeg`, `curl`, `md5sum`, and the models from `scripts/fetch-models.sh`.
+
+## 9. Amendments
+
+### Amendment 1 (2026-10-21, before any score was computed)
+
+Section 3 assumed every speaker has at least 38 utterances of 4.0 s or longer. Counting from the FLAC headers (no audio decoded, no score computed) shows 4 of 40 speakers in each set fall short; the smallest has 31 (dev-clean speakers 422, 2078, 2902, 3576; test-clean speakers 1221, 2094, 4077, 8224). The first full run stopped on speaker 422 with an error, before producing any result.
+
+Rule, applied to every speaker alike: the enrollment pool stays at 8 utterances and the probe pool is `min(30, qualifying - 8)`, with a floor of 10 (a speaker below the floor would be excluded and listed; none is). Genuine trials per enrollment follow the speaker's own probe-pool size; impostor probes are 3 sampled from the other speaker's pool as before. Trial counts in section 3 are therefore upper bounds; the report states the actual counts.
