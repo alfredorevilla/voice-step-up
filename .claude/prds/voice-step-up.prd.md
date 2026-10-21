@@ -100,7 +100,7 @@ Every item below must be checked. The text of each item lives in its milestone p
 - [x] M3-A1, M3-A2, M3-A3, M3-A4, M3-A5
 - [x] M4-A1, M4-A2, M4-A3, M4-A4, M4-A5
 - [x] M5-A1, M5-A3, M5-A4, M5-A5
-- [ ] M5-A2 (idempotent re-deploy over existing apps)
+- [x] M5-A2 (idempotent re-deploy over existing apps)
 - [x] M6-A1, M6-A2, M6-A3, M6-A4, M6-A5
 - [x] M7-A1, M7-A3, M7-A4
 - [x] M7-A2 (e2e job green in CI after a push)

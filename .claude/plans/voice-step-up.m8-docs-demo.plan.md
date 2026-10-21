@@ -60,5 +60,5 @@ Done by the M8 fork on `feat/voice-step-up`: T8.1 to T8.5. Open: the blockers be
 - **Decision: `FakeAuthority:PublicUrl`** pins the issuer, because the fake authority built its signing key per request host, so a token minted for `localhost:5100` failed against keys fetched as `authority:5100`. Test: `PublicUrl_PinsTheIssuerWhateverHostNameTheCallerUsed`.
 - **Not written:** `docs/CONTRIBUTING.md` and `docs/RUNBOOK.md` (a demonstrator with no deployed service; README and CLAUDE.md cover setup and commands).
 - **Blocker for the push:** the tenant id and subscription id are in git history (commits `f7da6dc` and `ee3b639`, removed from the tree since). The repository is public, so the history must be rewritten before any push. Not done: it needs the user's decision.
-- **Open (not M8):** M5-A2 (idempotent re-deploy over existing apps) needs the user to run the tenant commands.
+- **Open (not M8):** none. M5-A2 closed 2026-10-21; the Entra apps remain in the tenant until `scripts/entra-teardown.sh --yes` is run.
 - **Environment gotcha:** the default Docker builder here runs `dotnet` as a silent no-op inside a build; use `docker buildx create --name stepup-bk --driver docker-container` and `BUILDX_BUILDER=stepup-bk`. CI is unaffected.
