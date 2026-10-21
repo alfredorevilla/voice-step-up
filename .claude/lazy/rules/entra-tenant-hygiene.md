@@ -21,7 +21,7 @@ Graph resources MUST carry a fixed client-provided key (`uniqueName` for applica
 
 ### Required
 
-The tenant domain, tenant id, subscription id and client ids MUST NOT appear in tracked files. They come from the untracked `.env.local`. This rule loads only on infra, script and `.env*` edits, so a scan must back it for `appsettings*.json`, README, docs and tests (see the pending CI scan in the loop runbook).
+The tenant domain, tenant id, subscription id and client ids MUST NOT appear in tracked files. They come from the untracked `.env.local`. This rule loads only on infra, script and `.env*` edits, so a scan must back it for `appsettings*.json`, README, docs and tests (the `build-test` job in `ci.yml` runs that scan).
 
 Every script that changes the tenant MUST first assert that `az account show --query tenantId` equals `VOICE_STEPUP_TENANT`. The Windows `az` keeps logins to other tenants.
 

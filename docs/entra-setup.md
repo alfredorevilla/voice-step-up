@@ -47,7 +47,7 @@ From Microsoft Learn, "Microsoft Graph Bicep feature limitations and restriction
 - No what-if, no verbose output, no deployment stacks for Graph resources. `--dry-run` therefore builds the template and checks the tenant, but cannot preview the change.
 - The portal's deployment details page shows Graph resources only for deployments run in debug mode.
 
-Observed or inferred, not confirmed by that page (UNVERIFIED until the live run):
+Observed or inferred, not confirmed by that page. The live run of 2026-10-21 showed that deploy works and that teardown deletes and purges both applications and both service principals; it did not test the points below, which stay unverified:
 
 - Deleting the resource group does not delete the Graph objects, because they are not Azure resources. Teardown deletes them explicitly.
 - A soft-deleted application keeps its `uniqueName` until purged, so a redeploy right after a delete may collide. Teardown purges for that reason.

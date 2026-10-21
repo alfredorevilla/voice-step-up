@@ -33,7 +33,7 @@ Every attempt, pass or fail, MUST be recorded in the Attempts table with its res
 
 The SPA MUST use the authorization code flow with PKCE. It MUST NOT use a client secret or the implicit grant.
 
-The fresh-MFA fallback rule is UNVERIFIED until the M5 T5.4 spike (ADR-0004). It requires `auth_time` within the window and does not accept `iat`. Do not hardcode `ngcmfa` handling before the spike.
+The fresh-MFA fallback rule (ADR-0004) was checked in the live M5 T5.4 spike for one TOTP user. It requires `amr` with `mfa` or `ngcmfa` and `auth_time` within the window, and does not accept `iat`. Entra did not issue `ngcmfa` to a TOTP user, so the rule MUST keep accepting `mfa`.
 
 ### Recommended
 

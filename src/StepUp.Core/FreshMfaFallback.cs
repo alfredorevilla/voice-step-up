@@ -7,7 +7,7 @@ public sealed record FallbackOptions
 
 /// <summary>
 /// ADR-0004 rule: amr has mfa or ngcmfa and auth_time is within the window. iat is never a proxy.
-/// UNVERIFIED against a live tenant until M5 T5.4; keep the rule behind <see cref="IFallbackFactor"/>.
+/// Checked once against a live tenant (M5 T5.4, ADR-0004); keep the rule behind <see cref="IFallbackFactor"/> so it can change without touching the policy.
 /// </summary>
 public sealed class FreshMfaFallback(FallbackOptions options, TimeProvider time) : IFallbackFactor
 {

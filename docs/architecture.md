@@ -1,6 +1,6 @@
 # Architecture
 
-Status: v1, design level (M1, after the T1.4 panel review). Nothing here is built yet. Decisions D1 to D11 are in `docs/adr/`; the threat model is `docs/threat-model.md`. Anything marked UNVERIFIED is settled later by the named spike.
+Status: v2, checked against the code in M8 (v1 was the design-level draft after the T1.4 panel review). Decisions D1 to D11 are in `docs/adr/`; the threat model is `docs/threat-model.md`. The two spikes it names (ASR in M3 T3.1, Entra claims in M5 T5.4) have run; their results are in ADR-0002 and ADR-0004.
 
 voice-step-up is a demonstrator, not a conformant authenticator (NIST SP 800-63B-4 says voice comparison SHALL NOT be used as a biometric authenticator). Voice is one step-up factor on top of an Entra ID sign-in, never the only one.
 
@@ -123,7 +123,7 @@ Fallback rule (ADR-0004), behind `IFallbackFactor` and configuration so the M5 s
 - `amr` contains `mfa` or `ngcmfa`, and `auth_time` is within N minutes (default 10, configurable).
 - `iat` is never a proxy: a silent refresh gives a new `iat` while `amr` keeps the old MFA. If `auth_time` is missing the rule fails closed.
 - The API app registration must declare `optionalClaims.accessToken` = `amr`, `auth_time` and `requestedAccessTokenVersion: 2` (M5 Bicep scope).
-- UNVERIFIED until M5 T5.4: whether Entra honors the claims request `{"access_token":{"amr":{"essential":true,"values":["ngcmfa"]}}}` for a custom API, forces a new MFA prompt during a live SSO session, returns `ngcmfa` for TOTP-only or FIDO2-only users, and moves `auth_time` forward.
+- Checked in the live spike (M5 T5.4, ADR-0004; one TOTP user, one run): the claims request `{"access_token":{"amr":{"essential":true,"values":["ngcmfa"]}}}` forced a new MFA prompt in a live SSO session and moved `auth_time` forward, and `ngcmfa` was not issued to a TOTP user (the token carried `totp` and `mfa`), so the rule keeps accepting `mfa`. FIDO2-only users were not tested.
 - `/api/payouts` passes on (valid assertion) OR (`IFallbackFactor` says fresh MFA).
 
 ### 2.4 Consent withdrawal and deletion
@@ -147,14 +147,14 @@ Stored in SQLite through EF Core (D7). No raw audio, ever.
 
 `UserKey` = HMAC-SHA256 (server secret) of `tid` + `oid`, so it cannot be reversed from known object ids.
 
-`ModelId` = SHA-256 of `models/models.lock` + sherpa-onnx version + feature and normalisation config version. A stored voiceprint with a different `ModelId` than the running one fails closed with `ReEnrollRequired` and the fallback is offered.
+`ModelId` = `wespeaker-resnet34-lm:<first 12 hex of the speaker model SHA-256 from models/models.lock>+sherpa-<package version>+<feature config version>`. Only the speaker model and the feature configuration change an embedding, so the ASR model is not part of it. A stored voiceprint with a different `ModelId` than the running one fails closed with `ReEnrollRequired` and the fallback is offered.
 
 | Table | Columns | Notes |
 |---|---|---|
 | `Consents` | `Id`, `UserKey`, `TextVersion`, `GivenAt`, `WithdrawnAt?` | One active consent per user. |
 | `Voiceprints` | `Id`, `UserKey`, `ModelId`, `EmbeddingProtected` (bytes), `CreatedAt` | Encrypted with Data Protection. One per user. Delete removes the row. |
 | `Enrollments` | `Id`, `UserKey`, `SamplesProtected`, `ExpiresAt` | In-progress enrollment; the id is bound to the user. Short TTL. |
-| `Attempts` | `Id`, `UserKey`, `At`, `Action`, `Score?`, `Threshold`, `ModelId`, `Result`, `ReasonCode?`, `Mode` (voice or fallback) | Analyst log. Append only: no update or delete path. Detail codes (`PhraseMismatch`, `BelowThreshold`) live here, not in the client response. |
+| `Attempts` | `Id`, `UserKey`, `At`, `Action`, `Score?`, `Threshold`, `ModelId`, `Result`, `ReasonCode?`, `Mode` (voice or fallback) | Analyst log. No update or delete path except the pseudonymise re-key on consent withdrawal. Detail codes (`PhraseMismatch`, `BelowThreshold`) live here, not in the client response. |
 | `Challenges` | `Id`, `UserKey`, `Action`, `Phrase?`, `ExpiresAt`, `ConsumedAt?` | Single use. The phrase is nulled on consume or expiry. Open challenges per user are capped. |
 | `UsedAssertions` | `Jti`, `ExpiresAt` | Makes the assertion single use. |
 | `Thresholds` | `Id`, `Name`, `ModelId`, `Value`, `UpdatedAt`, `UpdatedBy` | Active threshold plus history. Value in 0.0 to 1.0 with a configurable floor. |
@@ -216,10 +216,10 @@ Quality gates have numeric values in `docs/design/verifier.md` (M3). `TooShort` 
 ```mermaid
 flowchart LR
   subgraph compose["docker compose up (offline demo, D8)"]
-    web["web: SPA static"]
-    api["api: StepUp.Api + Sherpa verifier"]
-    auth["fake-authority"]
-    vol[("volume: SQLite + key ring + models")]
+    web["web: built SPA (vite preview)"]
+    api["api: StepUp.Api + Fake verifier"]
+    auth["authority: StepUp.FakeAuthority"]
+    vol[("volume: SQLite + key ring")]
   end
   web --> api
   web --> auth
@@ -227,11 +227,11 @@ flowchart LR
   api --> vol
 ```
 
-`./scripts/demo-entra.sh` runs the same API and SPA against real Entra using the tenant and client id passed as parameters (never committed). Models are fetched by a checksum-verified script, not committed. The SPA serves a CSP, keeps tokens out of `localStorage`, and the fake authority supports PKCE and CORS on its token endpoint so the offline demo matches Entra.
+The default services need no models and no tenant; the API with the real Sherpa verifier is the `api-real` service under the `real` compose profile (its image fetches the models, checked against `models/models.lock`). `./scripts/demo-entra.sh` runs the API (real verifier) and the SPA against real Entra using the tenant and client ids from the untracked `.env.local` (never committed). The API reaches the authority as `http://authority:5100` while the browser uses `http://localhost:5100`; `FakeAuthority:PublicUrl` pins the issuer so both see the same keys. The SPA serves a CSP, keeps tokens out of `localStorage`, and the fake authority supports PKCE and CORS on its token endpoint so the offline demo matches Entra.
 
-## 8. Optional design docs for later milestones
+## 8. Design docs
 
-Per the PRD (Documentation order): a verifier design doc in M3 (`docs/design/verifier.md`, after the ASR spike) and an evaluation-protocol doc in M6 (`docs/design/evaluation-protocol.md`, before any result is seen). Others only when a part meets at least two of: security-sensitive, non-obvious, built by parallel implementers, expensive to change. M8 checks this document against the code.
+Per the PRD (Documentation order): the verifier design (`docs/design/verifier.md`, written after the ASR spike), the evaluation protocol (`docs/design/evaluation-protocol.md`, committed before any result was seen, with its amendments) and the claims input for the README (`docs/design/honest-claims.md`). Others only when a part meets at least two of: security-sensitive, non-obvious, built by parallel implementers, expensive to change. M8 T8.3 checked this document against the code.
 
 ## 9. Review outcome (M1 T1.4)
 

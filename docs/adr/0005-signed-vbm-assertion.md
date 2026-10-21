@@ -9,7 +9,7 @@ On a voice pass the service must issue a verifiable "step-up done" result. Voice
 
 ## Decision
 Issue a JWT: header `typ` = `stepup+jwt`, `alg` = ES256, `kid`; claims `iss` = this service, `aud` = the service's step-up audience (never the Entra App ID URI), `sub` = `oid`, `tid`, `amr:["vbm"]`, `act` = the action, optional `ph` = hash of the request's key fields (`amount`, `to`), `jti`, `iat`, `exp` (5 minutes).
-- Single use: the `jti` is recorded in `UsedAssertions` when the protected action runs.
+- Single use: the `jti` is recorded in `UsedAssertions` when the step-up filter validates the assertion, just before the protected action runs.
 - Valid only together with a valid bearer token for the same `oid` and `tid`, and only for its `act`.
 - Own handler: only the service's key set (never the Entra JWKS), `ValidAlgorithms` = ES256, a required `typ`, rejects `none`, HS256 and an unknown `kid`. The Entra bearer handler rejects the assertion, and this handler rejects Entra tokens. A `vbm` value inside an Entra token is never treated as the voice step-up.
 - Key: generated at first start, protected with Data Protection in the key-ring volume, never in the repo or image. Rotation is manual (delete and restart); stated as a demo limit.

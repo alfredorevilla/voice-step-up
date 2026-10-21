@@ -8,7 +8,7 @@ Decisions: D8, D9, D10
 A reviewer must be able to run the project with one command and no tenant. The repo is a public showcase.
 
 ## Decision
-- `docker compose up` starts the API, the SPA and `StepUp.FakeAuthority` with no tenant. `./scripts/demo-entra.sh` uses real Entra. Fake mode starts only with an explicit demo flag in Development or on a loopback or compose network; Entra mode never trusts the fake issuer (TM-013).
+- `docker compose up --build --wait` starts the API (Fake verifier), the SPA and `StepUp.FakeAuthority` with no tenant and no models. `./scripts/demo-entra.sh` uses real Entra. Fake mode starts only with `Demo:Enabled=true` in the Development or Demo environment (`FakeModeGuard`); Entra mode never trusts the fake issuer (TM-013).
 - SPA: React, Vite and TypeScript with `@azure/msal-browser`, tested with Vitest and Testing Library, with Playwright for end-to-end. CSP, no tokens in `localStorage`.
 - Licence MIT. `NOTICE` and the README credit sherpa-onnx (Apache-2.0), the WeSpeaker model (CC BY 4.0) and LibriSpeech (CC BY 4.0).
 
