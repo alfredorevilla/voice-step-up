@@ -49,3 +49,11 @@ The loop ends when any one holds:
 - Any other go/no-go confirmation or decision: `/council`.
 - Record each verdict, its reasoning and the rejected alternatives in the plan or ADR it affects.
 - Unchanged: outward actions (push, PR, issue, message) stay pending unless a council verdict explicitly approves one and the verdict is recorded; secrets and the TOTP rules still apply.
+
+## Pending, needs user approval (rules panel, 2026-10-21)
+
+Not applied because `.claude/settings.json` edits are classifier-gated:
+
+- Suggested `permissions.ask` entries for mutating `az`: `Bash(az ad app create*)`, `Bash(az ad * delete*)`, `Bash(az deployment *)`, `Bash(az ad app permission admin-consent*)`. This backs the prose rule in `entra-tenant-hygiene.md`.
+- Applied already (a `ci.yml` change, not a settings change): a step that fails when a tracked file holds a GUID next to the words tenant or subscription (the all-zero placeholder is allowed). It does not read `.env.local`, which is absent in CI.
+- Decide in M6: whether to disable the user-wide `ecc/python/*` lazy rules for this repo via `lazy.rules` in settings.

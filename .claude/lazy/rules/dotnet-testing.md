@@ -5,6 +5,8 @@ on:
 ---
 # .NET Testing
 
+SPA test rules (Vitest, Testing Library, Playwright) land with M4.
+
 ## Custom rules
 
 ### Required
@@ -15,15 +17,13 @@ Assertions MUST use xUnit's built-in `Assert`. A fluent assertion library MUST N
 
 API tests MUST go through HTTP with `WebApplicationFactory` and the fake authority. They MUST NOT bypass authentication or authorization middleware.
 
-Every `IVerifier` implementation MUST pass the shared contract suite.
+Every `IVerifier` implementation MUST pass the shared contract suite, and a new implementation MUST be added behind that suite before any wiring.
 
-Tests that need a model file MUST be tagged `Category=Model`. Unit tests MUST NOT use the network.
-
-Test names MUST describe behavior, not implementation.
+Tests that need a model file MUST carry `[Trait("Category", "Model")]`. Unit tests MUST NOT use the network. CI excludes model tests with `dotnet test -- --filter-not-trait "Category=Model"` (xUnit v3 on MTP); `ci.yml` gets this filter in M3, when the first model test lands.
 
 ### Recommended
 
-Line coverage on Core and Api SHOULD be at least 80%.
+Test names SHOULD describe behavior, not implementation, in the style of the threat-model names (`Verify_AfterDelete_ReturnsNoVoiceprint`).
 
 The `test-anti-patterns` and `assertion-quality` skills SHOULD be run over the suite before review.
 

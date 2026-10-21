@@ -13,6 +13,14 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - name: Scan for tenant and subscription ids
+        run: |
+          hits="$(git grep -nIiE '(tenant|subscription)[a-z_ -]{0,20}[:=" ]+[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | grep -v '00000000-0000-0000-0000-000000000000' || true)"
+          if [ -n "$hits" ]; then
+            echo "tenant or subscription id found in tracked files:"
+            echo "$hits" | cut -d: -f1,2
+            exit 1
+          fi
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
