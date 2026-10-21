@@ -34,8 +34,8 @@
 - [x] 1. `/loop-start` on `.claude/prds/voice-step-up.prd.md`; runbook: `.claude/plans/voice-step-up.close-out.loop.runbook.md`
 - [x] 2. Run the loop-start runbook to completion (inner loop): T1 to T5 done, see its Results section
 - [x] 3. `/push-pr`: 3 commits, PR #1 updated
-- [ ] 4. `/merge-default`
-- [ ] 5. `claude -p "/goal All non-blocking or low-severity issues found by /pr-review --fix --evals and /code-review are fixed, or goal round eq 5. If goal is achieved output GOAL_ACHIEVED, else GOAL_NOT_ACHIEVED, optionally GOAL_MESSAGE=<string> with extra information"`
+- [x] 4. `/merge-default`: NOOP, origin/main already merged
+- [x] 5. `claude -p "/goal All non-blocking or low-severity issues found by /pr-review --fix --evals and /code-review are fixed, or goal round eq 5. If goal is achieved output GOAL_ACHIEVED, else GOAL_NOT_ACHIEVED, optionally GOAL_MESSAGE=<string> with extra information"` (GOAL_NOT_ACHIEVED at round 2 of 5, blocked on test-edit approval; resolved with the user: tests kept, both nitpicks fixed by hand; see Failures and Decisions)
 - [ ] 6. `/push-pr`
 - [ ] 7. `claude -p "/goal (all steps of the PRD .claude/prds/voice-step-up.prd.md are completed, and its AC/DoD items are met and checked where required) or goal round eq 5. If achieved output GOAL_ACHIEVED, else GOAL_NOT_ACHIEVED, optionally GOAL_MESSAGE=<string> with extra information"`
 - [ ] 8. `/push-pr`
@@ -51,6 +51,7 @@
 
 | Step | Error | Resolution |
 |---|---|---|
+| 5 (`/goal` review-fix) | `GOAL_NOT_ACHIEVED` at round 2 of 5: blocked on approval to edit test code for two nitpicks. 33 files changed, nothing committed. | HALT before step 6, as the command requires. Waiting on the user. |
 | 3 (`/push-pr`) | `git push` returned 403: the active `gh` account had switched back to the other logged-in account after the start-of-run switch. | Ran `gh auth switch -h github.com -u alfredorevilla` and pushed again; it succeeded. Cause of the flip unknown (another session or process). Halted here to report, because later steps push and merge. |
 
 ## Decisions
@@ -61,7 +62,11 @@
 - 2026-10-21: `gh` switched to `alfredorevilla` before step 1, because the other logged-in account cannot push to this repo. Confidence: high.
 - 2026-10-21: Commits use the noreply author address `24548343+alfredorevilla@users.noreply.github.com` (global `user.email` is already set to it). Rationale: public repo; see the git commit email memory. Confidence: high.
 
+- 2026-10-21 (step 5): The headless review-fix run added 2 new test files (`PayoutPayloadHashTests.cs`, `HardeningTests.cs`) and extended 7 test files without asking, which breaks the global "ask before modifying or extending tests" rule. Options: keep, revert, or review first. Decision: keep them (the user chose this). Rationale: they are the only proof for several fixes (purge, eraser transaction, `secure_delete` read-back, redirect allow-list) and threat-model rows cite them. Confidence: high (user decision). The run itself could not receive the answer, so it must be applied after the run ends.
 ## Divergences
+- Step 5: the headless run stopped at `GOAL_NOT_ACHIEVED`, so by the command it halted. After the user approved the two test edits I fixed them myself (`ShippedDefaultsTests.cs` guard against quoted CSV fields; `HttpVerifierTests.cs` stub now waits asynchronously via an `IResult`) instead of resuming the headless run. The goal's review round was not re-run after those two small fixes.
+- Step 5 verification: after the fixes, the first full `dotnet test` run exited 134 (a test host aborted; 388 tests ran, 0 failed, "error: 1"). Four later full runs were clean (406 tests, 405 passed, 1 skipped by design). The abort is unexplained and did not recur; it may be a flaky crash in one of the 13 tests added by the review run.
+- Step 4: `merge-default.sh` refuses a dirty tree, and the runbook bookkeeping from step 3 was uncommitted. I committed only that file locally (no push) before re-running; the result was NOOP.
 
 - The command expects an unfinished PRD or plan. This PRD's milestones are already complete, so the inner loop will mostly verify and close the four project-level lines rather than build.
 
@@ -69,6 +74,7 @@
 
 | Step | Tokens | Rounds | GOAL_MESSAGE |
 |---|---|---|---|
+| 5 | headless session (transcript under the Claude Code projects folder): 23 turns in the final invocation, about $4.32 reported by `total_cost_usd`, 8,553 output tokens (the JSON `result` was empty; the `GOAL_*` line came from the transcript) | 2 of 5 | GOAL_NOT_ACHIEVED. Everything from `/pr-review` and `/code-review` is fixed in the working tree except two low-severity test nitpicks (`ShippedDefaultsTests.cs:32` plain `Split(',')` CSV parse; `HttpVerifierTests.cs:165` stub blocks on `Task.Delay(...).GetAwaiter().GetResult()`), blocked on approval to edit test code. |
 
 ## Final report
 
