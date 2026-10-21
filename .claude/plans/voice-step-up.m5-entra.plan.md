@@ -41,11 +41,21 @@ scripts/entra-deploy.sh --dry-run && scripts/entra-teardown.sh --dry-run
 | A script runs against the wrong tenant | High | Tenant assertion (M5-A3) |
 
 ## Acceptance
-- [ ] M5-A1. `infra/entra.bicep` builds and lints cleanly with Bicep v0.48.1.
+- [x] M5-A1. `infra/entra.bicep` builds and lints cleanly with Bicep v0.48.1.
 - [ ] M5-A2. Deploy and teardown work against the tenant, are idempotent on re-run, and the teardown purges soft-deleted apps.
-- [ ] M5-A3. Both scripts refuse to run when the signed-in tenant id differs from `VOICE_STEPUP_TENANT`.
+- [x] M5-A3. Both scripts refuse to run when the signed-in tenant id differs from `VOICE_STEPUP_TENANT`.
 - [ ] M5-A4. The live spike result (`amr`, `auth_time`, `roles`, `ngcmfa` behaviour) is recorded in ADR-0004 and matches the implemented fallback rule.
-- [ ] M5-A5. No tenant id, domain or client identifier is committed (`git grep` check).
+- [x] M5-A5. No tenant id, domain or client identifier is committed (`git grep` check).
+
+## Status (2026-10-21)
+
+Done without touching the tenant: T5.1 (Bicep builds and lints with v0.48.1; compiled template shows `requestedAccessTokenVersion: 2`, optional claims `amr`, `auth_time`, `idtyp`, the `Analyst` role and the SPA pre-authorization), T5.2 (scripts; both `--dry-run` runs pass; both refuse a wrong tenant, checked with a mismatched `VOICE_STEPUP_TENANT`), T5.3 (`docs/entra-setup.md`), T5.5 (CI job; actionlint exit 0).
+
+Not done, blocked on a confirmation: **M5-A2 and M5-A4 need the live tenant.** The deploy, the teardown and the T5.4 spike create, change or delete objects in the work tenant. `.claude/lazy/rules/entra-tenant-hygiene.md` says such commands must not run without confirmation in the session, and the milestone fork cannot convene the `/teammates` or `/council` panel that stands in for the user. Run `scripts/entra-deploy.sh`, the spike, then `scripts/entra-teardown.sh` once a council verdict (or the user) approves; the teardown must be run and verified in the same sitting.
+
+Needs the human, not a panel: nothing so far. If the TOTP wrapper cannot satisfy an interactive consent prompt in the spike, that step needs the user.
+
+Template fix found while testing: `scripts/lib-entra.sh` first let `.env.local` override a value set in the environment, which defeated the tenant check when tested with a wrong tenant; the environment now wins.
 
 ## Finish
 Use `/goal` (fix all medium and higher or blocking issues found and ensure all plan acceptance criteria items are done) or turn eq 3 (a fix loop capped at 3 turns). Then use `/code-review` (ECC's). `/goal` exists nowhere on this machine as of 2026-10-20 (no command file, skill or plugin entry), so the 3-turn fix loop is the Finish step. It is deliberately not in the Tooling table, so it cannot halt the pre-execution gate.

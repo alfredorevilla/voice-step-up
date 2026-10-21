@@ -45,3 +45,14 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  bicep:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned Bicep CLI
+        run: az bicep install --version v0.48.1
+      - name: Build
+        run: az bicep build --file infra/entra.bicep --stdout > /dev/null
+      - name: Lint
+        run: az bicep lint --file infra/entra.bicep
