@@ -22,3 +22,7 @@ The API app registration declares `optionalClaims.accessToken` = `amr`, `auth_ti
 - UNVERIFIED until T5.4, which tests on the custom API audience: (a) the claims request forces a new MFA prompt during a live SSO session, (b) `ngcmfa` comes back for a TOTP-only or FIDO2-only user (without the request, `ngcmfa` normally appears only for Authenticator push and Windows Hello for Business), (c) `auth_time` moves forward after the re-prompt.
 - Learn documents the `ngcmfa` claims request for Microsoft Graph authentication-methods calls; its use for a custom API is not documented.
 - Tokens from the fake authority carry the same claims, and its authorize endpoint honors the claims request, so CI and the offline demo can test the rule.
+
+## Spike status (M5 T5.4)
+
+Not run yet. The Entra template, deploy and teardown scripts exist and pass their dry runs, but the live sign-in needs the app registrations deployed to the work tenant, and that step is waiting on a confirmation (see the M5 plan, Status). Until the spike answers the three questions (does the `ngcmfa` claims request force fresh MFA in a live SSO session; does `ngcmfa` come back for a TOTP-only user; does `auth_time` move forward), this ADR stays Proposed and the implemented rule (`amr` has `mfa` or `ngcmfa`, `auth_time` recent, `iat` never) is unchanged.
