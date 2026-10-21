@@ -20,7 +20,7 @@ tools:
 model: opus
 creation-date: 2026-10-20T00:00:00-05:00
 last-update-date: 2026-10-20T00:00:00-05:00
-author: alfredo-revilla <redacted@example.com>
+author: alfredo-revilla
 ---
 
 ## Scope & Routing
