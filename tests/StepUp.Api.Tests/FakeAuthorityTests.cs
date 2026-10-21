@@ -144,4 +144,17 @@ public sealed class FakeAuthorityTests : IAsyncLifetime
         Assert.Equal("http://localhost:5173", allowed.Headers.GetValues("Access-Control-Allow-Origin").Single());
         Assert.False(evil.Headers.Contains("Access-Control-Allow-Origin"));
     }
+
+    [Fact]
+    public async Task PublicUrl_PinsTheIssuerWhateverHostNameTheCallerUsed()
+    {
+        await using var pinned = FakeAuthorityHost.Build(["--urls", "http://127.0.0.1:0", "--FakeAuthority:PublicUrl=http://localhost:5100"]);
+        await pinned.StartAsync(Ct);
+        using var http = new HttpClient { BaseAddress = new Uri(pinned.Urls.First()) };
+
+        using var discovery = JsonDocument.Parse(await http.GetStringAsync("/.well-known/openid-configuration", Ct));
+
+        Assert.Equal("http://localhost:5100/v2.0", discovery.RootElement.GetProperty("issuer").GetString());
+        Assert.StartsWith(pinned.Urls.First(), discovery.RootElement.GetProperty("jwks_uri").GetString(), StringComparison.Ordinal);
+    }
 }

@@ -38,9 +38,13 @@ public static class FakeAuthorityHost
         var minters = new ConcurrentDictionary<string, FakeTokenMinter>();
         var time = TimeProvider.System;
 
+        // Behind a container network the API reaches the authority by a service name while the browser uses localhost;
+        // PublicUrl pins the issuer (and so the signing key) to the address the browser sees.
+        var publicUrl = builder.Configuration["FakeAuthority:PublicUrl"]?.TrimEnd('/');
+
         FakeTokenMinter MinterFor(HttpRequest r)
         {
-            var issuer = $"{r.Scheme}://{r.Host}/v2.0";
+            var issuer = $"{publicUrl ?? $"{r.Scheme}://{r.Host}"}/v2.0";
             return minters.GetOrAdd(issuer, i => new FakeTokenMinter(i, audience, time));
         }
 
