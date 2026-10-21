@@ -39,10 +39,10 @@
 - [x] 6. `/push-pr`: 7 commits (one per concern), PR #1 body updated
 - [x] 7. `claude -p "/goal (all steps of the PRD .claude/prds/voice-step-up.prd.md are completed, and its AC/DoD items are met and checked where required) or goal round eq 5. If achieved output GOAL_ACHIEVED, else GOAL_NOT_ACHIEVED, optionally GOAL_MESSAGE=<string> with extra information"` (GOAL_ACHIEVED at round 1: PRD has 0 unticked boxes, all 48 acceptance ids and the project DoD items ticked with evidence)
 - [x] 8. `/push-pr`: runbook bookkeeping only
-- [ ] 9. `/claude-md-improver` (not installed: warn and skip)
-- [ ] 10. `/push-pr`
-- [ ] 11. `/session-summary` and auto-save its items
-- [ ] 12. `/push-pr`
+- [x] 9. `/claude-md-improver`: SKIPPED. WARNING: the skill (claude-md-management plugin) is not installed on this machine, so no CLAUDE.md recommendations were applied.
+- [x] 10. `/push-pr`: no changes (step 9 skipped)
+- [x] 11. `/session-summary`: item 6 saved to memory (repo auth setup). Items 7 (edit the /full-loop command, outside this worktree) and 8 (M9 plan) are left for the user.
+- [x] 12. `/push-pr`: runbook ticks for steps 9 to 11
 - [ ] 13. `/learn-eval` (teammates decide which changes to make)
 - [ ] 14. Write the Final report, then `/push-pr`
 - [ ] 15. `/ship --rebase`
