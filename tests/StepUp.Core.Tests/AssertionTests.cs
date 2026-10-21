@@ -140,6 +140,9 @@ public class AssertionTests
             Issuer = _options.Issuer,
             Audience = _options.Audience,
             TokenType = StepUpAssertionService.TokenType,
+            // Pin the other lifetime claims to the fake clock too: CreateToken would otherwise stamp nbf/iat with the real clock.
+            NotBefore = _time.GetUtcNow().UtcDateTime,
+            IssuedAt = _time.GetUtcNow().UtcDateTime,
             Expires = _time.GetUtcNow().AddMinutes(5).UtcDateTime,
             Claims = new Dictionary<string, object> { ["sub"] = "oid-1", ["tid"] = "tid-1", ["amr"] = ValidAmr, ["act"] = "payout", ["jti"] = Guid.NewGuid().ToString("N") },
             SigningCredentials = new SigningCredentials(key, algorithm),
@@ -211,6 +214,9 @@ public class AssertionTests
             Issuer = _options.Issuer,
             Audience = "api://app-id",
             TokenType = StepUpAssertionService.TokenType,
+            // Pin the other lifetime claims to the fake clock too: CreateToken would otherwise stamp nbf/iat with the real clock.
+            NotBefore = _time.GetUtcNow().UtcDateTime,
+            IssuedAt = _time.GetUtcNow().UtcDateTime,
             Expires = _time.GetUtcNow().AddMinutes(5).UtcDateTime,
             Claims = new Dictionary<string, object> { ["sub"] = "oid-1", ["tid"] = "tid-1", ["act"] = "payout", ["jti"] = "j3" },
             SigningCredentials = new SigningCredentials(_keys.SigningKey, SecurityAlgorithms.EcdsaSha256),
