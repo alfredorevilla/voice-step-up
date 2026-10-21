@@ -21,3 +21,9 @@ Test fixtures only (tests/StepUp.Verifier.Tests/Audio/), not part of the service
 Piper en_US-libritts_r-medium voice model, trained on LibriTTS-R
   Creative Commons Attribution 4.0 International (model card shipped with the model; dataset http://www.openslr.org/141/).
   The eight WAV fixtures are synthetic speech produced with this model.
+
+Evaluation data (eval/, scripts/eval.sh), fetched at run time and never committed:
+LibriSpeech corpus (https://www.openslr.org/12/)
+  Creative Commons Attribution 4.0 International (OpenSLR resource 12). V. Panayotov, G. Chen, D. Povey, S. Khudanpur,
+  "LibriSpeech: an ASR corpus based on public domain audio books", ICASSP 2015. The dev-clean and test-clean sets are
+  used to measure false-accept and false-reject rates. docs/eval-report.md reports derived numbers only.
