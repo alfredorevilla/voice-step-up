@@ -2,5 +2,7 @@
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
   <ItemGroup>
     <Using Include="Xunit" />
+    <!-- Line coverage for scripts/coverage.sh (Microsoft Testing Platform extension). -->
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
   </ItemGroup>
 </Project>
