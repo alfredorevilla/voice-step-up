@@ -65,7 +65,7 @@ for d in D1 D2 D3 D4 D5 D6 D7 D8 D9 D10 D11; do grep -lE "^Decisions:.*\b$d\b" d
 - [x] M1-A1. `docs/architecture.md` contains the component and trust-boundary view, the four sequences, the data model and the API contract.
 - [x] M1-A2. ADRs 0001 to 0008 exist, each of D1 to D11 maps to one, and each lists the alternatives considered.
 - [x] M1-A3. `docs/threat-model.md` v0 exists and every seed threat maps to an invariant or to a named test in a later milestone.
-- [ ] M1-A4. The `/teammates` architecture and rules reviews ran, changes and rejections with reasons are recorded, and the user confirmed. (Architecture panel done 2026-10-21: 4 opus reviewers, verdict apply F1-F10, F12, F13, reject F11 in part and F14; recorded in `docs/architecture.md` section 9 and the ADRs. By the user's 2026-10-21 instruction the `/teammates` verdict replaces the user's confirmation. Rules panel result still to be recorded.)
+- [x] M1-A4. The `/teammates` architecture and rules reviews ran, changes and rejections with reasons are recorded, and the user confirmed. (Architecture panel done 2026-10-21: 4 opus reviewers, verdict apply F1-F10, F12, F13, reject F11 in part and F14; recorded in `docs/architecture.md` section 9 and the ADRs. By the user's 2026-10-21 instruction the `/teammates` verdict replaces the user's confirmation. Rules panel result still to be recorded.)
 - [x] M1-A5. No ADR is Proposed except those marked pending a named spike (0002 until T3.1, 0004 until T5.4).
 
 ## Finish
