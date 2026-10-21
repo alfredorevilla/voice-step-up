@@ -2,7 +2,7 @@
 # The built SPA served by `vite preview` (the same server the e2e tests use, with the strict CSP header).
 # The browser, not the container, calls the API and the authority, so these are the addresses the browser sees.
 
-FROM node:24-alpine
+FROM node:24.18-alpine
 WORKDIR /web
 COPY package.json package-lock.json ./
 RUN npm ci

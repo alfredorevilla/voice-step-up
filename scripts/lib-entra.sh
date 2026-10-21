@@ -8,7 +8,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [ -f "$root/.env.local" ]; then
   while IFS='=' read -r key value; do
     case "$key" in ''|\#*) continue ;; esac
-    [ -z "${!key+x}" ] && export "$key=$value"
+    if [ -z "${!key+x}" ]; then export "$key=$value"; fi
   done < "$root/.env.local"
 fi
 

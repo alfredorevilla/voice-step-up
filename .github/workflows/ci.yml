@@ -12,16 +12,19 @@ jobs:
   build-test:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - name: Scan for tenant and subscription ids
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Scan for GUIDs (tenant, subscription and client ids must not be tracked)
         run: |
-          hits="$(git grep -nIiE '(tenant|subscription)[a-z_ -]{0,20}[:=" ]+[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | grep -v '00000000-0000-0000-0000-000000000000' || true)"
+          # Allowed: synthetic ids that start 00000000-0000-0000-0000- (fake authority, tests) and the two
+          # role/scope ids in infra/entra.bicep. Lockfiles are skipped; -I skips binary files.
+          allow='^(00000000-0000-0000-0000-[0-9a-f]{12}|6f1b7c0e-2d44-4b0a-9a53-0f6c3a1e5d11|3c9a2b58-71e0-4f6d-8b27-5d4e9c0a7b32)$'
+          hits="$(git grep -nIioE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' -- . ':!*package-lock.json' ':!*packages.lock.json' ':!*yarn.lock' ':!*pnpm-lock.yaml' | awk -F: -v a="$allow" 'tolower($NF) !~ a' || true)"
           if [ -n "$hits" ]; then
-            echo "tenant or subscription id found in tracked files:"
-            echo "$hits" | cut -d: -f1,2
+            echo "GUID found in tracked files (file:line:value):"
+            echo "$hits"
             exit 1
           fi
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           global-json-file: global.json
       - run: dotnet restore
@@ -35,8 +38,8 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -50,7 +53,7 @@ jobs:
   bicep:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Install the pinned Bicep CLI
         run: az bicep install --version v0.48.1
       - name: Build
@@ -63,8 +66,8 @@ jobs:
     # must become healthy, and a real sign-in must give a token the API accepts.
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
       - name: Compose file is valid
@@ -82,7 +85,7 @@ jobs:
   actionlint:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Lint the workflows with the pinned, checksum-verified actionlint
         run: |
           set -euo pipefail
@@ -99,11 +102,11 @@ jobs:
     # The browser journey against the offline stack: fake authority, API with the Fake verifier, built SPA.
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           global-json-file: global.json
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -115,7 +118,7 @@ jobs:
         working-directory: web
       - run: npx playwright test
         working-directory: web
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:
           name: playwright-traces

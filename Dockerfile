@@ -10,7 +10,7 @@ RUN dotnet publish src/StepUp.Api/StepUp.Api.csproj -c Release -o /out \
  && dotnet publish src/StepUp.FakeAuthority/StepUp.FakeAuthority.csproj -c Release -o /out-authority
 
 # The fake sign-in authority of the offline demo (compose service `authority`). It needs no models and no tenant.
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS authority
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.12 AS authority
 WORKDIR /app
 COPY --from=build /out-authority ./
 ENV ASPNETCORE_HTTP_PORTS=5100
@@ -18,7 +18,7 @@ USER app
 EXPOSE 5100
 ENTRYPOINT ["dotnet", "StepUp.FakeAuthority.dll"]
 
-FROM debian:trixie-slim AS models
+FROM debian:trixie-20261005-slim AS models
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl bzip2 \
  && rm -rf /var/lib/apt/lists/*
@@ -28,7 +28,7 @@ COPY models/models.lock models/models.lock
 RUN bash scripts/fetch-models.sh
 
 # glibc base (the native sherpa-onnx and onnxruntime libraries do not run on Alpine).
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.12 AS runtime
 WORKDIR /app
 COPY --from=build /out ./
 COPY --from=models /app/models ./models
