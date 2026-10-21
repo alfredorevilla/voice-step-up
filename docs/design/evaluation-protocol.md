@@ -101,3 +101,32 @@ Limits stated in advance:
 Section 3 assumed every speaker has at least 38 utterances of 4.0 s or longer. Counting from the FLAC headers (no audio decoded, no score computed) shows 4 of 40 speakers in each set fall short; the smallest has 31 (dev-clean speakers 422, 2078, 2902, 3576; test-clean speakers 1221, 2094, 4077, 8224). The first full run stopped on speaker 422 with an error, before producing any result.
 
 Rule, applied to every speaker alike: the enrollment pool stays at 8 utterances and the probe pool is `min(30, qualifying - 8)`, with a floor of 10 (a speaker below the floor would be excluded and listed; none is). Genuine trials per enrollment follow the speaker's own probe-pool size; impostor probes are 3 sampled from the other speaker's pool as before. Trial counts in section 3 are therefore upper bounds; the report states the actual counts.
+
+### Amendment 2 (2026-10-21, before any new score is computed)
+
+Why. The first report (commit `6d97692`) found that the 2 s probe of the 4-word challenge rejects 43.28% of genuine attempts at the default threshold, and that the letter-similarity phrase check accepts a phrase with one wrong word 85.02% (dev-clean) and 87.00% (test-clean) of the time. A panel (speaker-verification, architecture, security and product views) asked for a longer-probe re-evaluation and for a stricter phrase rule with a pre-registered gate. This amendment fixes both, and every rule below, before the code that produces a new score exists.
+
+What was already seen. The test-clean numbers for conditions P0 to P4 and S0 were seen before this amendment. For that reason **every decision below is made on dev-clean only**, and test-clean is scored once for the new conditions at values frozen on dev-clean, as in sections 6 and 7. The report says that test-clean was used twice as a reporting set (once per protocol version) and that no choice depends on it.
+
+**A2.1 New conditions.** Utterance pools, seeds, trials and the quality gate are unchanged, so P0 to P4 and S0 must reproduce the numbers of the first report exactly (the report states whether they do). Segments are cut from the same 4.0 s-or-longer utterances, so the longest segment is 4.0 s.
+
+| Id | Enrollment | Probe | Role |
+|---|---|---|---|
+| L3 | 3 segments of 2.5 s, clean (as P0) | 3.0 s, clean | Isolates probe length |
+| L3E | 3 segments of 3.5 s, clean | 3.0 s, clean | **Candidate** for a 6-word challenge |
+| L4 | 3 segments of 2.5 s, clean | 4.0 s, clean | Isolates probe length, larger step |
+| L4E | 3 segments of 3.5 s, clean | 4.0 s, clean | Explains the gain of a longer enrollment |
+
+Words to seconds is an assumption, not a measurement: the product treats 4 words as about 2 s, 6 words as about 3 s and 8 words as about 4 s. The report gives the reading rate of the LibriSpeech phrase cases (words per second) as one hint and states that real challenge-word speech is not measured. Cohort normalisation (R5) stays restricted to P0 to P4.
+
+**A2.2 Operating values per new condition.** Rule R1 applied to each of L3, L3E, L4, L4E on dev-clean: threshold at FAR at most 1%, rounded up to two decimals; rule R2 for the strict point. Rule R3 for the 3.5 s enrollment (L3E and L4E share the same enrollments): consistency floor from the first percentile of the lowest pairwise cosine, rounded down.
+
+**A2.3 Adoption rule for a longer challenge (R6), dev-clean only.** The candidate is L3E, because a 6-word challenge is read for the probe and the enrollment phrases have the same length. Adopt `PhraseGenerator.WordsPerPhrase = 6` (enrollment phrases included), the L3E threshold as `StepUp:ThresholdSeed` and the L3E floor as `StepUp:EnrollmentConsistencyFloor` if and only if, on dev-clean at each condition's own R1 threshold, FRR(L3E) is at least 10 percentage points lower than FRR(P0) (FAR is at most 1% in both by construction). Otherwise keep 4 words, 0.79 and 0.46 and say so. Eight words (L4E) are not adopted by this amendment whatever the result: they change the demo flow more and the 8 s recorder cap leaves little margin. If L4E beats L3E by 10 points or more on dev-clean, the report states it as a candidate for a later decision.
+
+**A2.4 Per-word phrase rule (R4'), dev-clean only.** The rule is added to the production code before it is evaluated (`PhraseGenerator`, no copy in the harness). Align the letters of the transcript with the letters of the expected phrase by Levenshtein edit distance (backtrace preference: match, substitute, delete a phrase letter, insert a transcript letter). The cost of each edit belongs to the expected word that holds the phrase letter, and an inserted transcript letter belongs to the word of the preceding phrase letter (the first word if none). Word similarity is `1 - cost / max(word letters, transcript letters aligned to the word)`. A phrase matches when the whole-phrase similarity is at least 0.60 (unchanged) **and** every expected word has similarity at least `w`. Order is enforced by the alignment; split and merged words are tolerated because the alignment runs on letters.
+
+The cases are those of R4 (same seeded sample): correct, wrong whole phrase, and one-wrong-word. Grid for `w`: 0.50 to 0.70 in steps of 0.05. A value qualifies if on dev-clean **all** hold: correct phrases accepted at least 95%; one-wrong-word phrases accepted at most 5%; wrong whole phrases accepted exactly 0%. Choose the smallest qualifying `w`. If none qualifies, keep the whole-phrase rule at 0.60 alone and record that. The rule ships as `StepUp:PhraseMinWordSimilarity` (0 means off); the default is `w` if one qualifies, otherwise 0. The cases are LibriSpeech sentences of 3 to 6 words, not challenge-list nouns spoken by users, so the correct-phrase cost for real challenge speech is not measured; the report says so.
+
+**A2.5 Reporting.** The report keeps its structure and adds the new conditions to every table, a table of the grid for `w` on dev-clean (all three rates per value, and the same rates on test-clean for the chosen `w`, scored once), the words-per-second hint, the decision text of R6 and R4', and a line saying whether P0 to P4 and S0 reproduced the first report. The existing limits stay; the limits of A2.1 and A2.4 are added.
+
+**A2.6 Run.** Same command, same seeds, parallelism capped at 12 threads because the machine was shared (not a statistical choice). Per-case transcripts and expected texts of the phrase cases are written under the git-ignored output folder (text only, no audio) so the grid can be scored without audio.
