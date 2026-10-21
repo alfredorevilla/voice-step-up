@@ -36,9 +36,9 @@
 - [x] 3. `/push-pr`: 3 commits, PR #1 updated
 - [x] 4. `/merge-default`: NOOP, origin/main already merged
 - [x] 5. `claude -p "/goal All non-blocking or low-severity issues found by /pr-review --fix --evals and /code-review are fixed, or goal round eq 5. If goal is achieved output GOAL_ACHIEVED, else GOAL_NOT_ACHIEVED, optionally GOAL_MESSAGE=<string> with extra information"` (GOAL_NOT_ACHIEVED at round 2 of 5, blocked on test-edit approval; resolved with the user: tests kept, both nitpicks fixed by hand; see Failures and Decisions)
-- [ ] 6. `/push-pr`
-- [ ] 7. `claude -p "/goal (all steps of the PRD .claude/prds/voice-step-up.prd.md are completed, and its AC/DoD items are met and checked where required) or goal round eq 5. If achieved output GOAL_ACHIEVED, else GOAL_NOT_ACHIEVED, optionally GOAL_MESSAGE=<string> with extra information"`
-- [ ] 8. `/push-pr`
+- [x] 6. `/push-pr`: 7 commits (one per concern), PR #1 body updated
+- [x] 7. `claude -p "/goal (all steps of the PRD .claude/prds/voice-step-up.prd.md are completed, and its AC/DoD items are met and checked where required) or goal round eq 5. If achieved output GOAL_ACHIEVED, else GOAL_NOT_ACHIEVED, optionally GOAL_MESSAGE=<string> with extra information"` (GOAL_ACHIEVED at round 1: PRD has 0 unticked boxes, all 48 acceptance ids and the project DoD items ticked with evidence)
+- [x] 8. `/push-pr`: runbook bookkeeping only
 - [ ] 9. `/claude-md-improver` (not installed: warn and skip)
 - [ ] 10. `/push-pr`
 - [ ] 11. `/session-summary` and auto-save its items
@@ -75,6 +75,7 @@
 | Step | Tokens | Rounds | GOAL_MESSAGE |
 |---|---|---|---|
 | 5 | headless session (transcript under the Claude Code projects folder): 23 turns in the final invocation, about $4.32 reported by `total_cost_usd`, 8,553 output tokens (the JSON `result` was empty; the `GOAL_*` line came from the transcript) | 2 of 5 | GOAL_NOT_ACHIEVED. Everything from `/pr-review` and `/code-review` is fixed in the working tree except two low-severity test nitpicks (`ShippedDefaultsTests.cs:32` plain `Split(',')` CSV parse; `HttpVerifierTests.cs:165` stub blocks on `Task.Delay(...).GetAwaiter().GetResult()`), blocked on approval to edit test code. |
+| 7 | headless session (4 turns, about $0.18 reported by `total_cost_usd`; the JSON `result` held the `GOAL_*` lines) | 1 of 5 | GOAL_ACHIEVED. The PRD has 0 unticked boxes; all 48 acceptance ids and the project lines are ticked with dated evidence. It re-ran no tests or eval and relied on the evidence already recorded in the PRD. |
 
 ## Final report
 
