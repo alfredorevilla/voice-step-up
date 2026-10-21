@@ -185,15 +185,9 @@ public static class StepUpEndpoints
         }
 
         // The samples must come from one speaker, or a poisoned average could accept two people (TM-003).
-        for (var i = 0; i < state.Samples.Count; i++)
+        if (!Cosine.AllPairsAtLeast(state.Samples, options.EnrollmentConsistencyFloor))
         {
-            for (var j = i + 1; j < state.Samples.Count; j++)
-            {
-                if (Cosine.Similarity(state.Samples[i], state.Samples[j]) < options.EnrollmentConsistencyFloor)
-                {
-                    return Results.Problem(statusCode: StatusCodes.Status422UnprocessableEntity, title: "The samples do not sound like one speaker.", extensions: new Dictionary<string, object?> { ["code"] = nameof(ReasonCode.VerificationFailed) });
-                }
-            }
+            return Results.Problem(statusCode: StatusCodes.Status422UnprocessableEntity, title: "The samples do not sound like one speaker.", extensions: new Dictionary<string, object?> { ["code"] = nameof(ReasonCode.VerificationFailed) });
         }
 
         await voiceprints.ReplaceAsync(new Voiceprint(user, verifier.ModelId, Cosine.NormalizedMean(state.Samples), time.GetUtcNow()), ct);

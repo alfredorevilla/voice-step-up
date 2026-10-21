@@ -137,6 +137,25 @@ public class MetricsTests
     }
 
     [Fact]
+    public void Cluster_bootstrap_resamples_speakers_not_trials()
+    {
+        // Speaker 0 has 100 genuine trials, all rejected at 0.5; speaker 1 has one, accepted.
+        // Resampling the two speakers gives pooled FRR 1.0 (0,0), 100/101 (0,1) or (1,0), and 0.0 (1,1),
+        // each pair-of-draws with probability 1/4, 1/2, 1/4. So the 95% interval is exactly [0, 1].
+        // Resampling the 101 trials instead would give an interval near 0.99 +- 0.02, never reaching 0.
+        var speakers = new List<SpeakerScores>
+        {
+            new(0, [.. Enumerable.Repeat(0.1, 100)], []),
+            new(1, [0.9], []),
+        };
+
+        var (lo, hi) = Metrics.ClusterBootstrap(speakers, (g, i) => Metrics.Frr(g, 0.5), 2000, 4242);
+
+        Assert.Equal(0.0, lo, 9);
+        Assert.Equal(1.0, hi, 9);
+    }
+
+    [Fact]
     public void Eer_of_a_condition_with_no_trials_is_not_a_number()
     {
         var (eer, threshold) = Metrics.Eer([], []);

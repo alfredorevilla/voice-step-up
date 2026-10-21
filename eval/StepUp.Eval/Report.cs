@@ -18,6 +18,8 @@ public sealed record ReportInput(
 /// <summary>Writes docs/eval-report.md and the CSV files. Every figure comes from the computed results; nothing is typed in.</summary>
 public static class Report
 {
+    private static readonly string[] DegradedConditions = ["P1", "P2", "P3", "P4"];
+
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
     public static string Pct(double v) => double.IsNaN(v) ? "n/a" : (v * 100).ToString("0.00", Inv) + "%";
@@ -177,6 +179,10 @@ public static class Report
         sb.AppendLine("- Dependence of the genuine/impostor trials of one probe on many claimed speakers is not modelled beyond the cluster bootstrap on the claimed speaker.");
         sb.AppendLine("- Amendment 1 (probe pool sized to the utterances a speaker has) was made after a first full run stopped with an error on a speaker with too few long utterances. That run produced no result. A 3-speaker smoke run of the pipeline came earlier; no value was chosen from it or from any test-clean score.");
         sb.AppendLine("- Reproducibility was checked by recomputing the embeddings of 2 speakers per set without the cache: they matched the cached ones exactly.");
+        foreach (var condition in DegradedConditions.Where(c => double.IsNaN(f.RawEer[c])))
+        {
+            sb.AppendLine($"- {condition} produced no scores on dev-clean (the production gate refused every probe), so rule R5's \"EER not higher in P1 to P4\" had nothing to compare for it. The harness reads such a condition as not worse. The protocol did not say this; if it had a score the 20% bar for cohort normalisation could have failed on it. The condition is also unmeasured in the results.");
+        }
         sb.AppendLine();
 
         sb.AppendLine("## Attribution");

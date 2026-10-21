@@ -77,19 +77,7 @@ public static class Scoring
             .Select(segments => MinimumPairwise([.. segments.OfType<float[]>()])),
     ];
 
-    public static double MinimumPairwise(IReadOnlyList<float[]> embeddings)
-    {
-        var lowest = double.MaxValue;
-        for (var a = 0; a < embeddings.Count; a++)
-        {
-            for (var b = a + 1; b < embeddings.Count; b++)
-            {
-                lowest = Math.Min(lowest, Cosine.Similarity(embeddings[a], embeddings[b]));
-            }
-        }
-
-        return lowest;
-    }
+    public static double MinimumPairwise(IReadOnlyList<float[]> embeddings) => Cosine.MinimumPairwise(embeddings);
 
     /// <summary>Enrollments of two segments of speaker A and one of a random other speaker B, as a poisoning attempt.</summary>
     public static IReadOnlyList<double> PoisonedMinimumPairwise(IReadOnlyList<SpeakerEmbeddings> speakers)
