@@ -23,9 +23,19 @@ graph="https://graph.microsoft.com/v1.0"
 
 assert_tenant
 
-# Object id of a live application by its exact uniqueName (alternate key), empty if none.
+# Object id of a live application by its exact uniqueName (alternate key), empty if it does not exist.
+# Only a Graph "not found" counts as absent; any other failure (expired login, no permission) stops
+# the script, so it cannot report a false "nothing to delete" or a false "teardown verified".
 live_object_id() {
-  azq rest --method GET --url "$graph/applications(uniqueName='$1')?\$select=id" --query id -o tsv 2>/dev/null || true
+  local out
+  if out="$(azq rest --method GET --url "$graph/applications(uniqueName='$1')?\$select=id" --query id -o tsv 2>&1)"; then
+    printf '%s' "$out"
+  elif printf '%s' "$out" | /usr/bin/grep -qiE 'Request_ResourceNotFound|NotFound|404'; then
+    printf ''
+  else
+    echo "Graph lookup failed for uniqueName=$1: $(printf '%s' "$out" | head -c 300)" >&2
+    exit 1
+  fi
 }
 
 # Object ids of soft-deleted applications. Matched by id captured before deletion, never by name.
