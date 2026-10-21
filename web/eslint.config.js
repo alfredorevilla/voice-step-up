@@ -22,6 +22,11 @@ export default tseslint.config(
     },
   },
   {
+    // Tests read localStorage to prove no token is ever put there.
+    files: ["**/*.test.{ts,tsx}"],
+    rules: { "no-restricted-globals": "off", "no-restricted-properties": "off" },
+  },
+  {
     files: ["vite.config.ts", "eslint.config.js"],
     languageOptions: { globals: { ...globals.node } },
   },
