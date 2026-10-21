@@ -11,8 +11,11 @@ public sealed record Caller(string Tid, string Oid, IReadOnlyList<string> Amr, D
 
 public enum AttemptMode { Voice, Fallback }
 
-/// <summary>Pass and Fail count toward lockout (Fail only). Rejected is a quality reject, Error a verifier fault.</summary>
-public enum AttemptResult { Pass, Fail, Rejected, Error }
+/// <summary>
+/// Only Fail counts toward lockout, and a Pass (voice, or a fresh-MFA fallback) resets it. Rejected is a quality reject,
+/// Error a verifier fault, Refused a request turned away before a decision (no voiceprint, locked out, bad challenge, no step-up).
+/// </summary>
+public enum AttemptResult { Pass, Fail, Rejected, Error, Refused }
 
 public sealed record Attempt(
     Guid Id,

@@ -28,12 +28,12 @@ public sealed class VerificationService(
         var voiceprint = await voiceprints.GetAsync(user, cancellationToken);
         if (voiceprint is null)
         {
-            return Refuse(403, ReasonCode.NoVoiceprint);
+            return await RefuseAndLogAsync(user, action, 403, ReasonCode.NoVoiceprint, cancellationToken: cancellationToken);
         }
 
         if (!await consents.IsActiveAsync(user, cancellationToken))
         {
-            return Refuse(403, ReasonCode.ConsentMissing);
+            return await RefuseAndLogAsync(user, action, 403, ReasonCode.ConsentMissing, cancellationToken: cancellationToken);
         }
 
         if (voiceprint.ModelId != verifier.ModelId)
@@ -46,13 +46,13 @@ public sealed class VerificationService(
         var lockout = VoiceLockout.Evaluate(failures, options.Lockout, time.GetUtcNow());
         if (lockout.Kind != LockoutKind.None)
         {
-            return new VerifyOutcome(429, ReasonCode.RateLimited, true, null, null, lockout.RetryAfter);
+            return await RefuseAndLogAsync(user, action, 429, ReasonCode.RateLimited, retryAfter: lockout.RetryAfter, cancellationToken: cancellationToken);
         }
 
         var check = await challenges.ValidateAsync(user, challengeId, action, cancellationToken);
         if (check.Reason is { } invalid)
         {
-            return Refuse(410, invalid, fallback: false);
+            return await RefuseAndLogAsync(user, action, 410, invalid, fallback: false, cancellationToken: cancellationToken);
         }
 
         var threshold = await thresholds.GetActiveAsync(StepUpOptions.ThresholdName, verifier.ModelId, cancellationToken);
@@ -79,7 +79,7 @@ public sealed class VerificationService(
         var consumed = await challenges.ConsumeAsync(user, challengeId, action, cancellationToken);
         if (consumed.Reason is { } gone)
         {
-            return Refuse(410, gone, fallback: false);
+            return await RefuseAndLogAsync(user, action, 410, gone, fallback: false, threshold: threshold.Value, cancellationToken: cancellationToken);
         }
 
         // Both checks always run, so the response and its timing do not say which one failed.
@@ -141,6 +141,14 @@ public sealed class VerificationService(
 
     private Task LogAsync(UserKey user, string action, double? score, double threshold, AttemptResult result, ReasonCode? reason, CancellationToken cancellationToken) =>
         attempts.AppendAsync(new Attempt(Guid.NewGuid(), user, time.GetUtcNow(), action, score, threshold, verifier.ModelId, result, reason, AttemptMode.Voice), cancellationToken);
+
+    /// <summary>A request turned away before any decision. It is logged as Refused, which never feeds the lockout counter.</summary>
+    private async Task<VerifyOutcome> RefuseAndLogAsync(
+        UserKey user, string action, int status, ReasonCode code, bool fallback = true, TimeSpan? retryAfter = null, double threshold = 0, CancellationToken cancellationToken = default)
+    {
+        await LogAsync(user, action, null, threshold, AttemptResult.Refused, code, cancellationToken);
+        return new VerifyOutcome(status, code, fallback, null, null, retryAfter);
+    }
 
     private static VerifyOutcome Refuse(int status, ReasonCode code, bool fallback = true) => new(status, code, fallback, null, null, null);
 }

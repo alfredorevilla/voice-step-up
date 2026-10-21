@@ -112,19 +112,49 @@ public sealed class StoreTests : IDisposable
     }
 
     [Fact]
-    public async Task Attempts_HasNoUpdateOrDeletePath()
+    public async Task Attempts_HasNoUpdateOrDeletePath_ExceptThePseudonymiseSanction()
     {
         var log = _db.Get<IAttemptLog>();
         var attempt = new Attempt(Guid.NewGuid(), Alice, _db.Time.GetUtcNow(), "payout", 0.9, 0.8, "m", AttemptResult.Pass, null, AttemptMode.Voice);
         await log.AppendAsync(attempt, Ct);
 
-        var members = typeof(IAttemptLog).GetMethods().Select(m => m.Name).ToList();
+        var members = typeof(IAttemptLog).GetMethods().Select(m => m.Name).Order().ToList();
         await using var context = await _db.Get<IDbContextFactory<StepUpDbContext>>().CreateDbContextAsync(Ct);
         var row = await context.Attempts.SingleAsync(Ct);
         row.Score = 0.1;
 
-        Assert.DoesNotContain(members, n => n.Contains("Update", StringComparison.Ordinal) || n.Contains("Delete", StringComparison.Ordinal));
+        // Append-only. The one sanctioned exception is the withdrawal re-key (GDPR Art. 9): it rewrites UserKey, nothing else.
+        Assert.Equal(["AppendAsync", "GetFailureStateAsync", "ListAsync", "PseudonymiseAsync"], members);
         await Assert.ThrowsAsync<InvalidOperationException>(() => context.SaveChangesAsync(Ct));
+    }
+
+    [Fact]
+    public async Task Attempts_Pseudonymise_ReKeysOnlyThatUsersRowsToRandomTokens_KeepingTheRest()
+    {
+        var log = _db.Get<IAttemptLog>();
+        var bob = new UserKey("bob");
+        async Task Add(UserKey user, double score)
+        {
+            _db.Time.Advance(TimeSpan.FromSeconds(1));
+            await log.AppendAsync(new Attempt(Guid.NewGuid(), user, _db.Time.GetUtcNow(), "payout", score, 0.8, "m", AttemptResult.Fail, ReasonCode.BelowThreshold, AttemptMode.Voice), Ct);
+        }
+
+        await Add(Alice, 0.1);
+        await Add(Alice, 0.2);
+        await Add(Alice, 0.3);
+        await Add(bob, 0.4);
+
+        await log.PseudonymiseAsync(Alice, Ct);
+
+        var all = await log.ListAsync(new AttemptFilter(null, null, null, 0, 50), Ct);
+        var anonymous = all.Where(a => a.User != bob).ToList();
+        Assert.Equal(4, all.Count);
+        Assert.Equal(3, anonymous.Count);
+        Assert.All(anonymous, a => Assert.StartsWith("anon-", a.User.Value, StringComparison.Ordinal));
+        Assert.Equal(3, anonymous.Select(a => a.User).Distinct().Count());
+        Assert.Equal([0.1, 0.2, 0.3], anonymous.Select(a => a.Score!.Value).Order());
+        Assert.Equal(0.4, all.Single(a => a.User == bob).Score);
+        Assert.Equal(0, (await log.GetFailureStateAsync(Alice, DateTimeOffset.MinValue, Ct)).ConsecutiveFailures);
     }
 
     [Fact]
@@ -144,12 +174,32 @@ public sealed class StoreTests : IDisposable
         await Add(AttemptResult.Rejected);
         await Add(AttemptResult.Error);
         await Add(AttemptResult.Fail);
-        await Add(AttemptResult.Pass, AttemptMode.Fallback);
+        await Add(AttemptResult.Refused);
 
         var state = await log.GetFailureStateAsync(Alice, start, Ct);
 
         Assert.Equal(2, state.ConsecutiveFailures);
         Assert.NotNull(state.LastFailureAt);
+    }
+
+    [Fact]
+    public async Task Attempts_ASuccessfulFallbackResetsTheCounter()
+    {
+        var log = _db.Get<IAttemptLog>();
+        async Task Add(AttemptResult result, AttemptMode mode = AttemptMode.Voice)
+        {
+            _db.Time.Advance(TimeSpan.FromSeconds(1));
+            await log.AppendAsync(new Attempt(Guid.NewGuid(), Alice, _db.Time.GetUtcNow(), "payout", 0.5, 0.8, "m", result, null, mode), Ct);
+        }
+
+        var start = _db.Time.GetUtcNow();
+        await Add(AttemptResult.Fail);
+        await Add(AttemptResult.Fail);
+        await Add(AttemptResult.Pass, AttemptMode.Fallback);
+        Assert.Equal(0, (await log.GetFailureStateAsync(Alice, start, Ct)).ConsecutiveFailures);
+
+        await Add(AttemptResult.Fail);
+        Assert.Equal(1, (await log.GetFailureStateAsync(Alice, start, Ct)).ConsecutiveFailures);
     }
 
     [Fact]

@@ -29,7 +29,7 @@ public sealed record IssuedAssertion(string Token, DateTimeOffset ExpiresAt);
 /// <summary>What a presented assertion must be bound to: this user, this action and, if set, this payload.</summary>
 public sealed record AssertionBinding(string Oid, string Tid, string Action, string? PayloadHash);
 
-public sealed record AssertionResult(bool Ok, string? Failure);
+public sealed record AssertionResult(bool Ok, string? Failure, ReasonCode? Code = null);
 
 /// <summary>ADR-0005: ES256, header typ stepup+jwt, own audience, single use, bound to oid, tid and action.</summary>
 public sealed class StepUpAssertionService(
@@ -101,35 +101,35 @@ public sealed class StepUpAssertionService(
         var result = await _handler.ValidateTokenAsync(token, parameters);
         if (!result.IsValid)
         {
-            return new AssertionResult(false, "invalid token");
+            return new AssertionResult(false, "invalid token", ReasonCode.AssertionInvalid);
         }
 
         string? Claim(string name) => result.Claims.TryGetValue(name, out var v) ? v?.ToString() : null;
 
         if (Claim("sub") != binding.Oid || Claim("tid") != binding.Tid)
         {
-            return new AssertionResult(false, "wrong user");
+            return new AssertionResult(false, "wrong user", ReasonCode.AssertionInvalid);
         }
 
         if (Claim("act") != binding.Action)
         {
-            return new AssertionResult(false, "wrong action");
+            return new AssertionResult(false, "wrong action", ReasonCode.AssertionInvalid);
         }
 
         if (Claim("ph") != binding.PayloadHash)
         {
-            return new AssertionResult(false, "payload changed");
+            return new AssertionResult(false, "payload changed", ReasonCode.AssertionInvalid);
         }
 
         var jti = Claim("jti");
         if (string.IsNullOrEmpty(jti))
         {
-            return new AssertionResult(false, "no jti");
+            return new AssertionResult(false, "no jti", ReasonCode.AssertionInvalid);
         }
 
         var expiresAt = result.SecurityToken is JsonWebToken jwt ? new DateTimeOffset(jwt.ValidTo, TimeSpan.Zero) : time.GetUtcNow() + options.Lifetime;
         return await used.TryUseAsync(jti, expiresAt, cancellationToken)
             ? new AssertionResult(true, null)
-            : new AssertionResult(false, "replayed");
+            : new AssertionResult(false, "replayed", ReasonCode.AssertionReplayed);
     }
 }

@@ -76,8 +76,14 @@ public interface IAttemptLog
 
     Task<IReadOnlyList<Attempt>> ListAsync(AttemptFilter filter, CancellationToken cancellationToken);
 
-    /// <summary>Consecutive failed voice attempts since the last pass or since <paramref name="notBefore"/>.</summary>
+    /// <summary>Consecutive failed voice attempts since the last pass (voice, or a successful fresh-MFA fallback) or since <paramref name="notBefore"/>.</summary>
     Task<VoiceFailureState> GetFailureStateAsync(UserKey user, DateTimeOffset notBefore, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// On consent withdrawal: re-keys this user's attempts to a fresh random token per row, so the scores stay for the
+    /// analyst but can no longer be linked to the person. This is the only change an attempt row ever gets.
+    /// </summary>
+    Task PseudonymiseAsync(UserKey user, CancellationToken cancellationToken);
 }
 
 public interface IThresholdStore

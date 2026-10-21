@@ -176,15 +176,29 @@ public sealed class AttemptLog(IDbContextFactory<StepUpDbContext> factory) : IAt
         await using var db = await factory.CreateDbContextAsync(cancellationToken);
         var since = Ms.Of(notBefore);
         var voice = (int)AttemptMode.Voice;
-        var decided = new[] { (int)AttemptResult.Pass, (int)AttemptResult.Fail };
+        var fallback = (int)AttemptMode.Fallback;
+        var pass = (int)AttemptResult.Pass;
+        var fail = (int)AttemptResult.Fail;
+
+        // Decided voice attempts count; a successful fallback proves the user another way and ends the run. Refused, Rejected and Error never count.
         var recent = await db.Attempts.AsNoTracking()
-            .Where(a => a.UserKey == user.Value && a.Mode == voice && a.At >= since && decided.Contains(a.Result))
+            .Where(a => a.UserKey == user.Value && a.At >= since
+                && ((a.Mode == voice && (a.Result == pass || a.Result == fail)) || (a.Mode == fallback && a.Result == pass)))
             .OrderByDescending(a => a.At)
             .Select(a => new { a.Result, a.At })
             .ToListAsync(cancellationToken);
 
         var failures = recent.TakeWhile(a => a.Result == (int)AttemptResult.Fail).ToList();
         return new VoiceFailureState(failures.Count, failures.Count == 0 ? null : Ms.To(failures[0].At));
+    }
+
+    public async Task PseudonymiseAsync(UserKey user, CancellationToken cancellationToken)
+    {
+        await using var db = await factory.CreateDbContextAsync(cancellationToken);
+
+        // The one sanctioned write to an existing attempt row. SQLite evaluates randomblob per row, so each row gets its own token.
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE Attempts SET UserKey = 'anon-' || lower(hex(randomblob(16))) WHERE UserKey = {user.Value}", cancellationToken);
     }
 }
 

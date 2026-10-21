@@ -19,4 +19,8 @@ public enum ReasonCode
     FreshMfaRequired,
     ReEnrollRequired,
     VerificationFailed,
+
+    // Detail codes for the attempt log only. A client never sees these; it gets StepUpRequired.
+    AssertionReplayed,
+    AssertionInvalid,
 }
