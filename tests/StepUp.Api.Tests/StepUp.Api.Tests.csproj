@@ -8,10 +8,12 @@
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\StepUp.Api\StepUp.Api.csproj" />
+    <ProjectReference Include="..\..\src\StepUp.FakeAuthority\StepUp.FakeAuthority.csproj" />
   </ItemGroup>
 
 </Project>
