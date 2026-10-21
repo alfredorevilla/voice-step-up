@@ -32,6 +32,8 @@ export default defineConfig(({ mode }) => {
       environment: "jsdom",
       setupFiles: ["./src/test/setup.ts"],
       css: false,
+      // The Playwright specs in e2e/ run with `npx playwright test`.
+      exclude: ["e2e/**", "node_modules/**", "dist/**"],
     },
   };
 });

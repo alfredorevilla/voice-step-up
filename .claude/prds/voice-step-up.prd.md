@@ -75,7 +75,7 @@ We'll know we're right when a reviewer can run it with one command, read measure
 | M4 | SPA | A user can sign in, consent, enroll and step up from the browser, and the analyst can see attempts. | M2 | complete | [plan](../plans/voice-step-up.m4-spa.plan.md) |
 | M5 | Entra provisioning and live claims spike | Real Entra sign-in is provisioned and torn down by script, and the fallback acceptance rule is confirmed on the live tenant. | M2; needs the M0 Pre-flight | pending | [plan](../plans/voice-step-up.m5-entra.plan.md) |
 | M6 | FAR/FRR evaluation | False-accept and false-reject rates are reported over a public dataset, with limits stated. | M3 | complete | [plan](../plans/voice-step-up.m6-evaluation.plan.md) |
-| M7 | Edge cases and end-to-end tests | Every spec edge case is covered by a test that fails when the behaviour is removed, and the main flows run end to end in CI. | M3, M4, M5, M6 | pending | [plan](../plans/voice-step-up.m7-e2e.plan.md) |
+| M7 | Edge cases and end-to-end tests | Every spec edge case is covered by a test that fails when the behaviour is removed, and the main flows run end to end in CI. | M3, M4, M5, M6 | complete | [plan](../plans/voice-step-up.m7-e2e.plan.md) |
 | M8 | Docs, threat model refresh and one-command demo | A reviewer can clone the repo, run one command, and read the architecture, threat model, results and honest limits. | M7 | pending | [plan](../plans/voice-step-up.m8-docs-demo.plan.md) |
 
 ## Open Questions
@@ -100,7 +100,7 @@ Every item below must be checked. The text of each item lives in its milestone p
 - [x] M4-A1, M4-A2, M4-A3, M4-A4, M4-A5
 - [ ] M5-A1, M5-A2, M5-A3, M5-A4, M5-A5
 - [x] M6-A1, M6-A2, M6-A3, M6-A4, M6-A5
-- [ ] M7-A1, M7-A2, M7-A3, M7-A4
+- [x] M7-A1, M7-A2, M7-A3, M7-A4
 - [ ] M8-A1, M8-A2, M8-A3, M8-A4, M8-A5, M8-A6
 - [ ] Project: all nine milestones are complete.
 - [ ] Project: every validation command in the plans passes.

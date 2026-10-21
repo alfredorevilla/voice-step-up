@@ -23,25 +23,37 @@ public class FallbackAndLockoutTests
     [Fact]
     public void Fallback_RejectsStaleAuthTime()
     {
-        Assert.False(Fallback.Evaluate(CallerWith(["mfa"], TimeSpan.FromMinutes(11))).Fresh);
+        var result = Fallback.Evaluate(CallerWith(["mfa"], TimeSpan.FromMinutes(11)));
+
+        Assert.False(result.Fresh);
+        Assert.Equal("auth_time outside window", result.Why);
     }
 
     [Fact]
     public void Fallback_RejectsMissingAuthTime()
     {
-        Assert.False(Fallback.Evaluate(CallerWith(["mfa"], null)).Fresh);
+        var result = Fallback.Evaluate(CallerWith(["mfa"], null));
+
+        Assert.False(result.Fresh);
+        Assert.Equal("auth_time missing", result.Why);
     }
 
     [Fact]
     public void Fallback_RejectsAmrWithoutMfa()
     {
-        Assert.False(Fallback.Evaluate(CallerWith(["pwd"], TimeSpan.FromMinutes(1))).Fresh);
+        var result = Fallback.Evaluate(CallerWith(["pwd"], TimeSpan.FromMinutes(1)));
+
+        Assert.False(result.Fresh);
+        Assert.Equal("no mfa in amr", result.Why);
     }
 
     [Fact]
     public void Fallback_RejectsAuthTimeInTheFuture()
     {
-        Assert.False(Fallback.Evaluate(CallerWith(["mfa"], TimeSpan.FromMinutes(-5))).Fresh);
+        var result = Fallback.Evaluate(CallerWith(["mfa"], TimeSpan.FromMinutes(-5)));
+
+        Assert.False(result.Fresh);
+        Assert.Equal("auth_time outside window", result.Why);
     }
 
     [Fact]
