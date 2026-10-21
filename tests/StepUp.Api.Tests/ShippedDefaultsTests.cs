@@ -29,7 +29,10 @@ public class ShippedDefaultsTests
 
     private static double[] DevDefaultThresholdFromTheReport()
     {
-        var rows = File.ReadLines(RepoFile("docs", "eval", "summary.csv")).Skip(1).Select(l => l.Split(','));
+        var lines = File.ReadLines(RepoFile("docs", "eval", "summary.csv")).Skip(1).ToList();
+        // Split(',') below cannot read quoted fields: fail loudly instead of reading a shifted column.
+        Assert.All(lines, l => Assert.DoesNotContain("\"", l));
+        var rows = lines.Select(l => l.Split(','));
         return [.. rows
             .Where(r => r[0] == "dev-clean" && r[1] == ShippedCondition && r[2] == "default")
             .Select(r => double.Parse(r[3], CultureInfo.InvariantCulture))];

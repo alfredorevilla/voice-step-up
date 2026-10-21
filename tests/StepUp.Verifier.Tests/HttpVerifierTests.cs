@@ -160,15 +160,27 @@ public sealed class HttpVerifierBehaviourTests : IAsyncLifetime
     [Fact]
     public async Task Analyze_WhenTheServiceIsSlow_HonoursTheCallersTimeout()
     {
-        stub.Override = http =>
-        {
-            Task.Delay(TimeSpan.FromSeconds(10), http.RequestAborted).GetAwaiter().GetResult();
-            return Results.Ok();
-        };
+        stub.Override = _ => new HoldsTheResponse(TimeSpan.FromSeconds(10));
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(Ct);
         cts.CancelAfter(TimeSpan.FromMilliseconds(200));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => With().AnalyzeAsync(Wav, Phrase, cts.Token));
+    }
+
+    /// <summary>A response that never completes on its own: it waits asynchronously until the caller gives up.</summary>
+    private sealed class HoldsTheResponse(TimeSpan hold) : IResult
+    {
+        public async Task ExecuteAsync(HttpContext httpContext)
+        {
+            try
+            {
+                await Task.Delay(hold, httpContext.RequestAborted);
+            }
+            catch (OperationCanceledException)
+            {
+                // The caller gave up, which is what the test wants.
+            }
+        }
     }
 
     [Fact]
