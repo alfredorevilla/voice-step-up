@@ -26,4 +26,17 @@ jobs:
           global-json-file: global.json
       - run: dotnet restore
       - run: dotnet build --no-restore
-      - run: dotnet test --no-build
+      # Model tests need the fetched models; they run locally and in the container job below.
+      - run: dotnet test --no-build -- --filter-not-trait "Category=Model"
+
+  container:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image (fetches and checks the models) and wait for the health check
+        run: docker compose up --build --wait --wait-timeout 300
+      - name: Show the logs if it did not come up
+        if: failure()
+        run: docker compose logs api
+      - run: docker compose down -v
+        if: always()
