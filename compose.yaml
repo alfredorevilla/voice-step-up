@@ -1,0 +1,18 @@
+# The API with the real verifier. M8 adds the SPA and the fake authority for the one-command demo.
+# Fake sign-in is a demo mode: it needs Demo__Enabled and the Demo environment.
+services:
+  api:
+    build: .
+    image: voice-step-up-api
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Demo
+      Demo__Enabled: "true"
+      Verifier__Mode: Sherpa
+    volumes:
+      - stepup-data:/data
+    restart: unless-stopped
+
+volumes:
+  stepup-data:

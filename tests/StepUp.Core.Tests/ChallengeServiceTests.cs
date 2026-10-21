@@ -117,11 +117,30 @@ public class ChallengeServiceTests
 
     [Theory]
     [InlineData("Apple, ANCHOR arrow autumn.", "apple anchor arrow autumn", true)]
-    [InlineData("apple anchor arrow", "apple anchor arrow autumn", false)]
-    [InlineData("apple anchor arrow bamboo", "apple anchor arrow autumn", false)]
+    [InlineData("Lift each clock turtle.", "cliff peach clock turtle", true)] // ASR splits and misspells isolated nouns
+    [InlineData("banana dragon whistle quilt", "apple anchor arrow autumn", false)]
+    [InlineData("bamboo basket beacon bridge", "apple anchor arrow autumn", false)]
+    [InlineData("[ Silence ]", "apple anchor arrow autumn", false)]
+    [InlineData("(Bell)", "apple anchor arrow autumn", false)]
+    [InlineData("", "apple anchor arrow autumn", false)]
     [InlineData(null, "apple anchor arrow autumn", false)]
-    public void Phrase_MatchIgnoresCaseAndPunctuationButNotWords(string? transcript, string phrase, bool expected)
+    public void Phrase_MatchToleratesAsrSpellingButNotAnotherPhrase(string? transcript, string phrase, bool expected)
     {
         Assert.Equal(expected, PhraseGenerator.Matches(transcript, phrase));
+    }
+
+    [Fact]
+    public void Phrase_SimilarityIsLetterBasedAndIgnoresNonSpeechTags()
+    {
+        Assert.Equal(1.0, PhraseGenerator.Similarity("Apple Anchor", "apple  anchor"), 5);
+        Assert.Equal(1.0, PhraseGenerator.Similarity("[ Silence ] apple anchor", "apple anchor"), 5);
+        Assert.Equal(0.0, PhraseGenerator.Similarity("(Bell)", "apple anchor"), 5);
+        Assert.InRange(PhraseGenerator.Similarity("zzzz", "apple anchor"), 0.0, 0.2);
+    }
+
+    [Fact]
+    public void Phrase_MatchThresholdIs060()
+    {
+        Assert.Equal(0.60, PhraseGenerator.MatchThreshold);
     }
 }

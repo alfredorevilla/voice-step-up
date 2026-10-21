@@ -62,6 +62,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         Minter = new FakeTokenMinter(Issuer, Audience, Time);
     }
 
+    /// <summary>The temp directory that holds this instance's database and key files.</summary>
+    public string DataRoot => _root;
+
     public FakeTimeProvider Time { get; }
 
     public FakeTokenMinter Minter { get; }

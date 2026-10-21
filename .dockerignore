@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+.git/
+.github/
+.claude/
+.env
+.env.*
+tests/
+docs/
+artifacts/
+data/
+models/*
+!models/models.lock
+**/*.md
+*.user

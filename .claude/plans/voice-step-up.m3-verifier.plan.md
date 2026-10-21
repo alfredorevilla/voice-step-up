@@ -38,16 +38,26 @@ docker build . && docker compose up --wait
 ## Risks
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| ASR phrase check too slow or inaccurate on short random phrases | Medium | T3.1 go/no-go spike; phonetically distinct word list; a failed phrase check is a fail that falls back, never a lockout |
+| ASR phrase check too slow or inaccurate on short random phrases | Medium | T3.1 go/no-go spike; phonetically distinct word list; a failed phrase check is an ordinary failed voice attempt that offers the fallback at once; it counts toward the 5-failure delay, as the biometric-data rule requires, and quality rejections do not |
 | Native sherpa library does not load in the container | Medium | Debian-based ASP.NET image (not Alpine); load test in T3.6 |
 | Raw cosine scores separate poorly for some speakers | Medium | Thresholds and, only if the M6 protocol adopts it, cohort normalization from M6 (scores are never called calibrated) |
 
 ## Acceptance
-- [ ] M3-A1. The model download is checksum-verified and the verifier runs on CPU in WSL2 and in the container; measured latency per verification is recorded.
-- [ ] M3-A2. Muted, too short, clipped and noisy inputs are rejected with the matching reason code (tests).
-- [ ] M3-A3. A recording of one phrase submitted against a different challenge fails with `PhraseMismatch` (test).
-- [ ] M3-A4. `SherpaVerifier` and `HttpVerifier` both pass the shared `IVerifier` contract suite.
-- [ ] M3-A5. No raw audio is written to disk or logs during enrollment or verification (test that scans the data directory and captured logs).
+- [x] M3-A1. The model download is checksum-verified and the verifier runs on CPU in WSL2 and in the container; measured latency per verification is recorded.
+- [x] M3-A2. Muted, too short, clipped and noisy inputs are rejected with the matching reason code (tests).
+- [x] M3-A3. A recording of one phrase submitted against a different challenge fails with `PhraseMismatch` (test).
+- [x] M3-A4. `SherpaVerifier` and `HttpVerifier` both pass the shared `IVerifier` contract suite.
+- [x] M3-A5. No raw audio is written to disk or logs during enrollment or verification (test that scans the data directory and captured logs).
 
 ## Finish
 Use `/goal` (fix all medium and higher or blocking issues found and ensure all plan acceptance criteria items are done) or turn eq 3 (a fix loop capped at 3 turns). Then use `/code-review` (ECC's). `/goal` exists nowhere on this machine as of 2026-10-20 (no command file, skill or plugin entry), so the 3-turn fix loop is the Finish step. It is deliberately not in the Tooling table, so it cannot halt the pre-execution gate.
+
+## M3 evidence and decisions (2026-10-21)
+- **M3-A1**: `scripts/fetch-models.sh` checks every SHA-256 in `models/models.lock` (fresh fetch, re-run and a tampered file were each tried); the verifier checks the same file hashes at startup. Latency per verification, embedding plus ASR on 40 phrases: host p50 319 ms, p95 411 ms; container p50 322 ms, p95 424 ms (`docs/design/verifier.md` section 9). The Model suite also passes inside a container, and the `voice-step-up-api` image starts non-root and reports healthy through `docker compose up --wait`.
+- **M3-A2**: `AudioQualityTests` (synthetic signals: silence and a quiet clip are `Muted`, short speech is `TooShort`, clipped and loud noise are `Noisy`); the clipped and loud-noise cases also pass through `SherpaVerifier` on the real models.
+- **M3-A3**: `Analyze_APhraseSpokenAgainstAnotherChallenge_DoesNotMatch` (verifier) and `RealModels_EnrollStepUpAndWrongPhrase_ThroughTheApi_...` (the Api logs `PhraseMismatch`, the client sees `VerificationFailed`).
+- **M3-A4**: `SherpaVerifierContractTests` and `HttpVerifierContractTests` derive from `VerifierContract`, as does the fake.
+- **M3-A5**: `Analyze_WritesNoAudioToDiskAndNoNewFilesAnywhereItCouldPutThem` and, through the Api, a scan of the data directory (no `.wav`, `.pcm`, `.raw`, no RIFF header in any file) and of the captured logs.
+- **T3.1 outcome**: go. Whisper base.en, letter-similarity match at 0.60 (ADR-0002, now Accepted).
+- **Deviations from the plan text**: (1) The runtime image is the official `aspnet:10.0`, which is Ubuntu 24.04 (glibc), because no Debian-tagged 10.0 ASP.NET image exists; the plan's concern was glibc, not Alpine. (2) The plan has `SherpaVerifier` combine the three enrollment samples; the Api already does that (M2), so the verifier only returns embeddings. (3) The design doc is at `docs/design/verifier.md`. (4) Test speech is committed synthetic WAV fixtures plus a gated generator, because the text-to-speech differs on every run. (5) `ModelId` hashes only the speaker model, so a change of ASR model does not force re-enrollment.
+- **Known limits**: speech accuracy is measured on synthetic voices only; the 0.60 rule tolerates about one wrong word of four; the native calls cannot be cancelled mid-flight (the token is checked between steps, the Api's 3 s timeout covers the rest); `dotnet` printed nothing inside `docker build` with this machine's default BuildKit builder, a `docker-container` builder worked.

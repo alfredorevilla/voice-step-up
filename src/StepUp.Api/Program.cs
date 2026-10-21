@@ -10,6 +10,7 @@ using StepUp.Core;
 using StepUp.Infrastructure;
 using StepUp.Infrastructure.Persistence;
 using StepUp.Infrastructure.Verification;
+using StepUp.Verifier.Sherpa;
 
 var builder = WebApplication.CreateBuilder(args);
 var demoFlag = builder.Configuration.GetValue<bool>("Demo:Enabled");
@@ -32,8 +33,25 @@ switch (builder.Configuration["Verifier:Mode"] ?? "Sherpa")
         FakeModeGuard.Require("Verifier:Mode=Fake", demoFlag, builder.Environment.EnvironmentName);
         builder.Services.AddSingleton<IVerifier, FakeVerifier>();
         break;
+    case "Sherpa":
+        builder.Services.Configure<SherpaVerifierOptions>(builder.Configuration.GetSection("Verifier:Sherpa"));
+        builder.Services.AddSingleton<IVerifier, SherpaVerifier>();
+        break;
+    case "Http":
+        var http = builder.Configuration.GetSection("Verifier:Http");
+        var endpoint = VerifierEndpointGuard.Require(http["BaseAddress"]);
+        var modelId = http["ModelId"];
+        if (string.IsNullOrWhiteSpace(modelId))
+        {
+            throw new InvalidOperationException("Verifier:Http:ModelId must name the model the remote verifier runs.");
+        }
+
+        // The key comes from the environment (Verifier__Http__ApiKey), never from a file in the repo.
+        var httpOptions = new HttpVerifierOptions(modelId, http["ApiKey"]);
+        builder.Services.AddSingleton<IVerifier>(_ => new HttpVerifier(HttpVerifier.CreateClient(endpoint, TimeSpan.FromSeconds(30)), httpOptions));
+        break;
     default:
-        throw new NotSupportedException("The Sherpa verifier arrives in milestone M3. Use Verifier:Mode=Fake in the demo.");
+        throw new InvalidOperationException("Verifier:Mode must be Sherpa, Http or Fake.");
 }
 
 builder.Services.AddSingleton<IChallengeService>(sp => new ChallengeService(sp.GetRequiredService<IChallengeStore>(), options.Challenge, sp.GetRequiredService<TimeProvider>()));

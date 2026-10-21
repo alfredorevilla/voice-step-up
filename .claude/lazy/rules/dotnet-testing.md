@@ -19,7 +19,7 @@ API tests MUST go through HTTP with `WebApplicationFactory` and the fake authori
 
 Every `IVerifier` implementation MUST pass the shared contract suite, and a new implementation MUST be added behind that suite before any wiring.
 
-Tests that need a model file MUST carry `[Trait("Category", "Model")]`. Unit tests MUST NOT use the network. CI excludes model tests with `dotnet test -- --filter-not-trait "Category=Model"` (xUnit v3 on MTP); `ci.yml` gets this filter in M3, when the first model test lands.
+Tests that need a model file MUST carry `[Trait("Category", "Model")]`. Unit tests MUST NOT use the network. CI excludes model tests with `dotnet test -- --filter-not-trait "Category=Model"` (xUnit v3 on MTP); `ci.yml` applies it; model tests run locally (`scripts/fetch-models.sh`) and the container job covers the models.
 
 ### Recommended
 

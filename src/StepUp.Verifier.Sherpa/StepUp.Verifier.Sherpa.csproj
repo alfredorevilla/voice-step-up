@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="org.k2fsa.sherpa.onnx" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\StepUp.Core\StepUp.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,24 @@
+# Model lock. Read by scripts/fetch-models.sh and by the verifier at startup.
+# Fields: scope kind sha256 path [url]
+#   scope: runtime (needed to run the service) or test (needed only by Category=Model tests)
+#   download: fetch the url to models/<path>; a .tar.bz2 is checked, extracted into models/<path without the suffix>
+#             (first path component stripped) and then removed. The sha256 is of the downloaded file.
+#   verify:   sha256 of a file that must exist under models/ after extraction. The verifier checks these at startup.
+# Where the owner publishes a checksum it is noted; otherwise the sha256 was recorded at the first verified download (2026-10-21).
+# Licences: wespeaker model CC BY 4.0 (VoxCeleb), Whisper base.en MIT (OpenAI), Piper LibriTTS-R voices CC BY 4.0. See NOTICE.
+
+# WeSpeaker ResNet34-LM, 256-dim embeddings. sha256 equals the release checksum.txt (speaker-recongition-models).
+runtime download e9848563da86f263117134dfd7ad63c92355b37de492b55e325400c9d9c39012 wespeaker_en_voxceleb_resnet34_LM.onnx https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/wespeaker_en_voxceleb_resnet34_LM.onnx
+runtime verify   e9848563da86f263117134dfd7ad63c92355b37de492b55e325400c9d9c39012 wespeaker_en_voxceleb_resnet34_LM.onnx
+
+# Whisper base.en (int8), via sherpa-onnx. Archive sha256 recorded at first verified download (no published checksum).
+runtime download 475bc7052ce299c007f6d5d5407ba8601f819a2867f6eecee510ed17df581542 whisper-base.en.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-base.en.tar.bz2
+runtime verify   ef6b936f4c9b1d90a3b68634b60c4ed8576b26172b33c2535ec0e933c9edb823 whisper-base.en/base.en-encoder.int8.onnx
+runtime verify   f7162ad6db2dbef16cfaeaa7f945b9d7dd9c1b8d472f6aca82f2273d185e4d41 whisper-base.en/base.en-decoder.int8.onnx
+runtime verify   306cd27f03c1a714eca7108e03d66b7dc042abe8c258b44c199a7ed9838dd930 whisper-base.en/base.en-tokens.txt
+
+# Piper LibriTTS-R medium (904 voices). Test audio only: the Category=Model tests synthesise speech with it.
+test download 10dc268f3e371696d721486123e2705a9fc1faa113491979fde4d88dba1f1b1c tts.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-libritts_r-medium.tar.bz2
+test verify   8cce84cee4060bc3c2194bf95d33253c48dc8ff15e197b3b7a00b334ee0017f4 tts/en_US-libritts_r-medium.onnx
+test verify   620e1aecf1a68fea3ba5850d137b0138fa2037c9b372dad13b95a2a215d0849a tts/tokens.txt
+test verify   b471dc60d2d8335e819c393d196d6fbf792817f40051257b269878505bc9afb3 tts/en_US-libritts_r-medium.onnx.json

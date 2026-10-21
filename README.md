@@ -21,6 +21,17 @@ dotnet test
 
 Requires the .NET SDK pinned in `global.json`.
 
+## Run the real verifier
+
+The speaker and speech models are not in the repo. Fetch them (about 450 MB, every file checked against `models/models.lock`) and run the model tests:
+
+```bash
+scripts/fetch-models.sh
+dotnet test -- --filter-trait "Category=Model"
+```
+
+Or run the API with the models in a container: `docker compose up --build --wait` (health check on `http://localhost:8080/healthz`). Design and measured latency: `docs/design/verifier.md`. Licences of the models: `NOTICE`.
+
 ## Licence
 
 MIT. See `LICENSE`.

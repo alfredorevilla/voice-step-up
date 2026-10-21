@@ -4,6 +4,7 @@
     <Project Path="src/StepUp.Core/StepUp.Core.csproj" />
     <Project Path="src/StepUp.FakeAuthority/StepUp.FakeAuthority.csproj" />
     <Project Path="src/StepUp.Infrastructure/StepUp.Infrastructure.csproj" />
+    <Project Path="src/StepUp.Verifier.Sherpa/StepUp.Verifier.Sherpa.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/StepUp.Api.Tests/StepUp.Api.Tests.csproj" />

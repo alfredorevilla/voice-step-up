@@ -196,6 +196,8 @@ Settled in M2: the verify call for `payout` carries `amount` and `to`, so the is
 
 The random phrase plus the ASR check gives replay resistance against re-submitting a whole earlier recording. This is not liveness and not presentation attack detection. Two attacks are not stopped: words spliced from recordings of the victim saying each word (phrases come from a fixed word list; past attempts are a source; enrollment phrases are not, because they use a separate word list), and real-time voice conversion or a text-to-speech clone that reads the phrase. The 60 s window is configurable; shortening it would not stop either attack. These are stated limits.
 
+The ASR is Whisper base.en. A phrase matches at a letter-level similarity of 0.60 or higher between transcript and phrase (ADR-0002, `docs/design/verifier.md` section 5), not at exact word equality, because Whisper splits and merges isolated nouns. The API runs the verifier in one of three modes, `Verifier:Mode` = `Sherpa` (in-process, models checked against `models/models.lock` at startup), `Http` (a remote verifier on loopback, a compose service name or https; wire format in `HttpVerifier`) or `Fake` (demo only).
+
 Quality gates have numeric values in `docs/design/verifier.md` (M3). `TooShort` measures net speech after voice activity detection, not file length. Browser capture sets `echoCancellation`, `noiseSuppression` and `autoGainControl` to false and resamples with a low-pass filter.
 
 ## 6. Failure behavior
