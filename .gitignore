@@ -18,3 +18,4 @@ data/
 
 # Evaluation data (LibriSpeech, decoded audio, caches)
 eval-data/
+.playwright-mcp/

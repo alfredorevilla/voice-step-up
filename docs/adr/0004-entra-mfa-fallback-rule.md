@@ -1,6 +1,6 @@
 # ADR-0004: Accept fresh Entra MFA as the fallback
 
-Status: Proposed (pending the live spike, M5 T5.4)
+Status: Accepted (live spike M5 T5.4 run 2026-10-21; see Spike result for its limits)
 Date: 2026-10-20
 Decisions: D6
 
@@ -19,10 +19,24 @@ The API app registration declares `optionalClaims.accessToken` = `amr`, `auth_ti
 - No fallback: violates the NIST alternative-method requirement.
 
 ## Consequences
-- UNVERIFIED until T5.4, which tests on the custom API audience: (a) the claims request forces a new MFA prompt during a live SSO session, (b) `ngcmfa` comes back for a TOTP-only or FIDO2-only user (without the request, `ngcmfa` normally appears only for Authenticator push and Windows Hello for Business), (c) `auth_time` moves forward after the re-prompt.
+- T5.4 tested three questions on the custom API audience; see Spike result. The claims request forces a fresh MFA prompt and `auth_time` moves forward. For a TOTP user the token carries `mfa` and `totp`, not `ngcmfa`, so the rule must keep accepting `mfa`.
 - Learn documents the `ngcmfa` claims request for Microsoft Graph authentication-methods calls; its use for a custom API is not documented.
 - Tokens from the fake authority carry the same claims, and its authorize endpoint honors the claims request, so CI and the offline demo can test the rule.
 
-## Spike status (M5 T5.4)
+## Spike result (M5 T5.4, 2026-10-21)
 
-Not run yet. The Entra template, deploy and teardown scripts exist and pass their dry runs, but the live sign-in needs the app registrations deployed to the work tenant, and that step is waiting on a confirmation (see the M5 plan, Status). Until the spike answers the three questions (does the `ngcmfa` claims request force fresh MFA in a live SSO session; does `ngcmfa` come back for a TOTP-only user; does `auth_time` move forward), this ADR stays Proposed and the implemented rule (`amr` has `mfa` or `ngcmfa`, `auth_time` recent, `iat` never) is unchanged.
+Run by the user and the agent together: the user typed the test user's username and password in a Playwright browser, the agent entered the TOTP code. Authorization code with PKCE against the real tenant as the SPA app, scope of the API app, one non-admin test user (TOTP only). Tokens were decoded in memory; only claim names, `amr` values and ages were recorded.
+
+| Request | `amr` | `auth_time` age at exchange | Access token lifetime |
+|---|---|---|---|
+| 1. Plain sign-in | `pwd` | 50 s | about 1 hour |
+| 2. Same browser session, claims request for `ngcmfa` | `pwd`, `totp`, `mfa` | 33 s | 600 s |
+
+Answers:
+- (a) **Forces fresh MFA: yes.** The plain request completed with a password only (the tenant did not require MFA for this user). The claims request in the same SSO session raised an "Enter code" prompt, and the token then carried `mfa`.
+- (b) **`ngcmfa` for a TOTP user: no.** The token had `totp` and `mfa`. The `essential` request for a value that was not issued did not produce an error. The rule must therefore keep accepting `mfa`; `ngcmfa` would only add Authenticator-push and Windows Hello users.
+- (c) **`auth_time` moves forward: yes.** The second token's `auth_time` was 33 s old although about two minutes had passed since the first sign-in.
+- **Optional claims work.** `amr` and `auth_time` are present in the v2.0 access token for the API audience, with `scp` = `access_as_user`. No `roles` (none assigned to the test user) and no `idtyp` for the delegated token.
+- **`iat` is not a freshness signal.** In both tokens `iat` was 300 s old at exchange regardless of `auth_time`, because Entra backdates it. This supports the decision never to use `iat`.
+
+Limits: one user, one run, one browser session, no negative control such as `prompt=login` alone. The tenant does not require MFA for this user, so a plain sign-in gives no MFA. The deployed rule (`amr` has `mfa` or `ngcmfa`, `auth_time` recent, `iat` never) matches this evidence and is unchanged. Re-run the spike if the tenant's Conditional Access policy changes.

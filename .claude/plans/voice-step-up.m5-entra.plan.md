@@ -42,16 +42,16 @@ scripts/entra-deploy.sh --dry-run && scripts/entra-teardown.sh --dry-run
 
 ## Acceptance
 - [x] M5-A1. `infra/entra.bicep` builds and lints cleanly with Bicep v0.48.1.
-- [ ] M5-A2. Deploy and teardown work against the tenant, are idempotent on re-run, and the teardown purges soft-deleted apps.
+- [ ] M5-A2. Deploy and teardown work against the tenant, are idempotent on re-run, and the teardown purges soft-deleted apps. (deploy ran live 2026-10-21; the live teardown and the idempotent re-run are still to do)
 - [x] M5-A3. Both scripts refuse to run when the signed-in tenant id differs from `VOICE_STEPUP_TENANT`.
-- [ ] M5-A4. The live spike result (`amr`, `auth_time`, `roles`, `ngcmfa` behaviour) is recorded in ADR-0004 and matches the implemented fallback rule.
+- [x] M5-A4. The live spike result (`amr`, `auth_time`, `roles`, `ngcmfa` behaviour) is recorded in ADR-0004 and matches the implemented fallback rule.
 - [x] M5-A5. No tenant id, domain or client identifier is committed (`git grep` check).
 
 ## Status (2026-10-21)
 
 Done without touching the tenant: T5.1 (Bicep builds and lints with v0.48.1; compiled template shows `requestedAccessTokenVersion: 2`, optional claims `amr`, `auth_time`, `idtyp`, the `Analyst` role and the SPA pre-authorization), T5.2 (scripts; both `--dry-run` runs pass; both refuse a wrong tenant, checked with a mismatched `VOICE_STEPUP_TENANT`), T5.3 (`docs/entra-setup.md`), T5.5 (CI job; actionlint exit 0).
 
-Not done, blocked on a confirmation: **M5-A2 and M5-A4 need the live tenant.** The deploy, the teardown and the T5.4 spike create, change or delete objects in the work tenant. `.claude/lazy/rules/entra-tenant-hygiene.md` says such commands must not run without confirmation in the session, and the milestone fork cannot convene the `/teammates` or `/council` panel that stands in for the user. Run `scripts/entra-deploy.sh`, the spike, then `scripts/entra-teardown.sh` once a council verdict (or the user) approves; the teardown must be run and verified in the same sitting.
+Status 2026-10-21: the user ran `scripts/entra-deploy.sh --yes` (the apps exist in the tenant) and signed in as the non-admin test user with the agent entering the TOTP; the T5.4 spike result is in ADR-0004 (M5-A4 ticked). Open: M5-A2 needs a live teardown run by the user (`scripts/entra-teardown.sh --dry-run`, then the real one; it now deletes and purges service principals and checks deletedItems) and an idempotent re-deploy. The permission system blocks the agent from running tenant create/update/delete commands, so the user runs them.
 
 Needs the human, not a panel: nothing so far. If the TOTP wrapper cannot satisfy an interactive consent prompt in the spike, that step needs the user.
 
