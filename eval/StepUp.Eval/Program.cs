@@ -127,6 +127,11 @@ public static class Program
             for (var i = 0; i < args.Length; i++)
             {
                 var a = args[i];
+                if (a is "--data" or "--models" or "--out" or "--limit-speakers" or "--bootstrap" or "--protocol-commit" or "--threads" && i + 1 >= args.Length)
+                {
+                    return null;
+                }
+
                 switch (a)
                 {
                     case "--data": data = args[++i]; break;

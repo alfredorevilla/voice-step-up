@@ -51,12 +51,20 @@ public sealed class LibriSpeech(string setDirectory)
 
         using var process = Process.Start(start) ?? throw new InvalidOperationException("ffmpeg did not start.");
         using var buffer = new MemoryStream();
-        var errors = process.StandardError.ReadToEndAsync();
+        var errors = new System.Text.StringBuilder();
+        process.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data is not null)
+            {
+                errors.AppendLine(e.Data);
+            }
+        };
+        process.BeginErrorReadLine();
         process.StandardOutput.BaseStream.CopyTo(buffer);
-        process.WaitForExit();
+        process.WaitForExit(); // the no-argument overload also waits for the stderr handler to drain
         if (process.ExitCode != 0)
         {
-            throw new InvalidOperationException($"ffmpeg failed for {Path.GetFileName(flacPath)}: {errors.Result}");
+            throw new InvalidOperationException($"ffmpeg failed for {Path.GetFileName(flacPath)}: {errors}");
         }
 
         var bytes = buffer.GetBuffer().AsSpan(0, (int)buffer.Length);
