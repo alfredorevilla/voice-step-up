@@ -33,7 +33,7 @@
 
 - [x] 1. `/loop-start` on `.claude/prds/voice-step-up.prd.md`; runbook: `.claude/plans/voice-step-up.close-out.loop.runbook.md`
 - [x] 2. Run the loop-start runbook to completion (inner loop): T1 to T5 done, see its Results section
-- [ ] 3. `/push-pr`
+- [x] 3. `/push-pr`: 3 commits, PR #1 updated
 - [ ] 4. `/merge-default`
 - [ ] 5. `claude -p "/goal All non-blocking or low-severity issues found by /pr-review --fix --evals and /code-review are fixed, or goal round eq 5. If goal is achieved output GOAL_ACHIEVED, else GOAL_NOT_ACHIEVED, optionally GOAL_MESSAGE=<string> with extra information"`
 - [ ] 6. `/push-pr`
@@ -51,6 +51,7 @@
 
 | Step | Error | Resolution |
 |---|---|---|
+| 3 (`/push-pr`) | `git push` returned 403: the active `gh` account had switched back to the other logged-in account after the start-of-run switch. | Ran `gh auth switch -h github.com -u alfredorevilla` and pushed again; it succeeded. Cause of the flip unknown (another session or process). Halted here to report, because later steps push and merge. |
 
 ## Decisions
 
