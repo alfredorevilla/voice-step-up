@@ -217,9 +217,9 @@ Quality gates have numeric values in `docs/design/verifier.md` (M3). `TooShort` 
 flowchart LR
   subgraph compose["docker compose up (offline demo, D8)"]
     web["web: built SPA (vite preview)"]
-    api["api: StepUp.Api + Fake verifier"]
+    api["api: StepUp.Api + Sherpa verifier"]
     auth["authority: StepUp.FakeAuthority"]
-    vol[("volume: SQLite + key ring")]
+    vol[("volume: SQLite + key ring (models are in the image)")]
   end
   web --> api
   web --> auth
@@ -227,7 +227,7 @@ flowchart LR
   api --> vol
 ```
 
-The default services need no models and no tenant; the API with the real Sherpa verifier is the `api-real` service under the `real` compose profile (its image fetches the models, checked against `models/models.lock`). `./scripts/demo-entra.sh` runs the API (real verifier) and the SPA against real Entra using the tenant and client ids from the untracked `.env.local` (never committed). The API reaches the authority as `http://authority:5100` while the browser uses `http://localhost:5100`; `FakeAuthority:PublicUrl` pins the issuer so both see the same keys. The SPA serves a CSP, keeps tokens out of `localStorage`, and the fake authority supports PKCE and CORS on its token endpoint so the offline demo matches Entra.
+The compose services need no tenant: the authority is fake, the API runs the real Sherpa verifier (its image fetches the models at build time, checked against `models/models.lock`) and the browser records real speech. The Fake verifier is for tests and the browser e2e only, because it ignores speech and reads a stand-in payload. `./scripts/demo-entra.sh` runs the API (real verifier) and the SPA against real Entra using the tenant and client ids from the untracked `.env.local` (never committed). The API reaches the authority as `http://authority:5100` while the browser uses `http://localhost:5100`; `FakeAuthority:PublicUrl` pins the issuer so both see the same keys. The SPA serves a CSP, keeps tokens out of `localStorage`, and the fake authority supports PKCE and CORS on its token endpoint so the offline demo matches Entra.
 
 ## 8. Design docs
 

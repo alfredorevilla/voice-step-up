@@ -58,29 +58,17 @@ jobs:
       - name: Lint
         run: az bicep lint --file infra/entra.bicep
 
-  container:
-    # The API with the real verifier: the image fetches and checks the models, then the health check must pass.
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build the image and wait for the health check
-        run: docker compose --profile real up --build --wait --wait-timeout 600 api-real
-      - name: Show the logs if it did not come up
-        if: failure()
-        run: docker compose --profile real logs api-real
-      - run: docker compose --profile real down -v
-        if: always()
-
   demo:
-    # The one-command offline demo: compose config, then the three services healthy, then a real sign-in and API call.
+    # The one-command offline demo with the real verifier: the image fetches and checks the models, the three services
+    # must become healthy, and a real sign-in must give a token the API accepts.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Compose files are valid
-        run: docker compose --profile real config --quiet
+      - name: Compose file is valid
+        run: docker compose config --quiet
       - name: Start the demo and wait for the health checks
         run: docker compose up --build --wait --wait-timeout 600
       - name: Sign in and call the API
