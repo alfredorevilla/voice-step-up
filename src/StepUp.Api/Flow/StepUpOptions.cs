@@ -26,6 +26,12 @@ public sealed class StepUpOptions
     /// <summary>The FAR 1% point of the 2 s probe on dev-clean, rounded up (docs/eval-report.md, rule R1). Tied to the speaker model id and to a probe of about 2 s.</summary>
     public double ThresholdSeed { get; set; } = 0.79;
 
+    /// <summary>
+    /// Every expected word of the challenge must reach this letter similarity (0 = off, the whole-phrase rule alone).
+    /// See docs/design/evaluation-protocol.md A2.4 and docs/eval-report.md for how the value was chosen.
+    /// </summary>
+    public double PhraseMinWordSimilarity { get; set; }
+
     public int ChallengePerMinute { get; set; } = 20;
 
     public int VerifyPerMinute { get; set; } = 20;

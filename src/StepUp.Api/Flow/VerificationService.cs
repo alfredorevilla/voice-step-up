@@ -94,7 +94,7 @@ public sealed class VerificationService(
             return Refuse(403, ReasonCode.ReEnrollRequired);
         }
 
-        var phraseOk = PhraseGenerator.Matches(analysis.Result.Transcript, consumed.Phrase!);
+        var phraseOk = PhraseGenerator.Matches(analysis.Result.Transcript, consumed.Phrase!, options.PhraseMinWordSimilarity);
         var scoreOk = score >= threshold.Value;
         if (!phraseOk || !scoreOk)
         {

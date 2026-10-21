@@ -144,7 +144,7 @@ public static class StepUpEndpoints
             return Problems.Create(StatusCodes.Status400BadRequest, quality);
         }
 
-        if (!PhraseGenerator.Matches(result.Transcript, state.Phrases[state.Samples.Count]))
+        if (!PhraseGenerator.Matches(result.Transcript, state.Phrases[state.Samples.Count], options.PhraseMinWordSimilarity))
         {
             return Problems.Create(StatusCodes.Status400BadRequest, ReasonCode.PhraseMismatch);
         }
