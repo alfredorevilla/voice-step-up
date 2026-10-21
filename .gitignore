@@ -21,3 +21,6 @@ eval-data/
 .playwright-mcp/
 test-results/
 playwright-report/
+
+# Claude Code agent worktrees
+.claude/worktrees/

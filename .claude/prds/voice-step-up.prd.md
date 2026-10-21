@@ -94,7 +94,7 @@ We'll know we're right when a reviewer can run it with one command, read measure
 ## Definition of Done
 Every item below must be checked. The text of each item lives in its milestone plan; this list is the complete union of the Acceptance lists of M0 to M8 (48 items). A completeness check compares the item ids in the plans with this list.
 - [x] M0-A1, M0-A3, M0-A4
-- [ ] M0-A2 (CI green after a push)
+- [x] M0-A2 (CI green after a push)
 - [x] M1-A1, M1-A2, M1-A3, M1-A4, M1-A5
 - [x] M2-A1, M2-A2, M2-A3, M2-A4, M2-A5, M2-A6, M2-A7, M2-A8, M2-A9
 - [x] M3-A1, M3-A2, M3-A3, M3-A4, M3-A5
@@ -103,9 +103,9 @@ Every item below must be checked. The text of each item lives in its milestone p
 - [ ] M5-A2 (idempotent re-deploy over existing apps)
 - [x] M6-A1, M6-A2, M6-A3, M6-A4, M6-A5
 - [x] M7-A1, M7-A3, M7-A4
-- [ ] M7-A2 (e2e job green in CI after a push)
+- [x] M7-A2 (e2e job green in CI after a push)
 - [x] M8-A1, M8-A2, M8-A3, M8-A5, M8-A6
-- [ ] M8-A4 (all CI jobs green after a push)
+- [x] M8-A4 (all CI jobs green after a push)
 - [ ] Project: all nine milestones are complete.
 - [ ] Project: every validation command in the plans passes.
 - [ ] Project: no secret, tenant identifier or raw audio is committed, history included.

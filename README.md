@@ -104,7 +104,7 @@ Voice is special-category data under GDPR Article 9. This project is not legal a
 6. **The fallback is used often.** About a quarter of genuine attempts, before ASR rejects.
 7. **One live check.** The Entra fallback rule was checked once, with one TOTP user. `ngcmfa` was not issued to that user, so the rule accepts `mfa`.
 8. **The offline demo's sign-in is fake** and mints any identity. It must not face a network.
-9. **Not hardened for production.** The code had independent review passes during development, but no secret scan or image-layer check runs in CI, and the deployment shape (single instance, SQLite, local key ring) is a demo's.
+9. **Not hardened for production.** The code had independent review passes during development, but CI has no general secret scan (only a tenant-id check) and no image-layer check, and the deployment shape (single instance, SQLite, local key ring) is a demo's.
 
 ## Environment
 

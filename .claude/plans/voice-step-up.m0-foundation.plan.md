@@ -80,7 +80,7 @@ scripts/probe-tenant.sh   # after P1 to P3 and P6
 
 ## Acceptance
 - [x] M0-A1. `dotnet build` and `dotnet test` pass locally with the SDK pinned to 10.0.401.
-- [ ] M0-A2. The CI workflow passes actionlint and runs green on the feature branch. (actionlint passes; green run pending a push, not pre-approved)
+- [x] M0-A2. The CI workflow passes actionlint and runs green on the feature branch. (Evidence: PR #1 CI run https://github.com/alfredorevilla/voice-step-up/actions/runs/39668842733, all jobs green.)
 - [x] M0-A3. `probe-tenant.sh` ran read-only and its result is recorded; every unmet prerequisite is listed, and the installed Bicep binary matches the published v0.48.1 SHA-256.
 - [x] M0-A4. No tenant id, domain or secret appears in tracked files (`git grep` check).
 

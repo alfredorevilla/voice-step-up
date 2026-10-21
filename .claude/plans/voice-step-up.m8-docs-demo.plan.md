@@ -45,7 +45,7 @@ gh run list --workflow ci.yml --limit 1
 - [x] M8-A1. On a clean clone, one command starts the offline demo and the health endpoints return healthy. (2026-10-21: `git clone` of the committed HEAD, `docker compose up --build --wait` built the models into the image, all three services healthy, `scripts/demo-smoke.mjs` passed health, a PKCE sign-in and an authenticated API call, then `docker compose down -v`. Built with an isolated buildx builder because this machine's default builder cannot run `dotnet` in a build.)
 - [x] M8-A2. The README contains the threat model summary, honest limits (including the NIST SP 800-63B-4 position on voice), privacy and consent statements, and the FAR/FRR results table.
 - [x] M8-A3. `docs/threat-model.md` covers replay, synthetic voice, enrollment abuse, threshold tampering, fallback downgrade, `amr` forgery, consent and deletion, and audio handling.
-- [ ] M8-A4. All CI jobs are green on the pull request. (Open: needs a push and a CI run. `actionlint` is clean locally, `docker compose config` and the e2e, build, test, web and demo steps pass locally. Blocked first by the history scrub below.)
+- [x] M8-A4. All CI jobs are green on the pull request. (Evidence: all six jobs, actionlint, bicep, build-test, demo, e2e and web, are green on PR #1, run https://github.com/alfredorevilla/voice-step-up/actions/runs/39668842733.)
 - [x] M8-A5. `/init` and `/update-docs` have run and their output is committed.
 - [x] M8-A6. Every ADR 0001 to 0008 has status Accepted or Superseded and matches the implementation; none is still Proposed. (Checked against the code 2026-10-21: corrected the `ModelId` definition, the assertion consume point, the fake-mode guard wording and the compose description; ADR-0002 and ADR-0004 evidence read before accepting.)
 
@@ -54,11 +54,11 @@ Use `/goal` (fix all medium and higher or blocking issues found and ensure all p
 
 ## Status and decisions (2026-10-21)
 
-Done by the M8 fork on `feat/voice-step-up`: T8.1 to T8.5. Open: M8-A4 (CI run after a push) and the blockers below.
+Done by the M8 fork on `feat/voice-step-up`: T8.1 to T8.5. Open: the blockers below.
 
 - **Decision: the compose demo runs the real verifier.** The Fake verifier ignores speech and reads a `[quality][speaker][phrase]` payload from the WAV samples, so a microphone cannot use it (enrollment samples would look like different speakers and every phrase would mismatch). A demo that is only "healthy" would overstate. The default services are therefore the fake authority, the API with sherpa-onnx and the SPA, and the image fetches the models at build time. The Fake verifier stays for tests and the browser e2e. Rejected: a `--profile fast` Fake-verifier variant (dead code for an interactive demo) and an SPA stand-in audio button (scope). Decided by the fork alone: a fork cannot convene `/council` or `/teammates`, so the parent should review this record.
 - **Decision: `FakeAuthority:PublicUrl`** pins the issuer, because the fake authority built its signing key per request host, so a token minted for `localhost:5100` failed against keys fetched as `authority:5100`. Test: `PublicUrl_PinsTheIssuerWhateverHostNameTheCallerUsed`.
 - **Not written:** `docs/CONTRIBUTING.md` and `docs/RUNBOOK.md` (a demonstrator with no deployed service; README and CLAUDE.md cover setup and commands).
 - **Blocker for the push:** the tenant id and subscription id are in git history (commits `f7da6dc` and `ee3b639`, removed from the tree since). The repository is public, so the history must be rewritten before any push. Not done: it needs the user's decision.
-- **Open (not M8):** M5-A2 (idempotent re-deploy over existing apps) needs the user to run the tenant commands; M0-A2 and M7-A2 need the CI run.
+- **Open (not M8):** M5-A2 (idempotent re-deploy over existing apps) needs the user to run the tenant commands.
 - **Environment gotcha:** the default Docker builder here runs `dotnet` as a silent no-op inside a build; use `docker buildx create --name stepup-bk --driver docker-container` and `BUILDX_BUILDER=stepup-bk`. CI is unaffected.

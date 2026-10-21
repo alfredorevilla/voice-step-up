@@ -39,7 +39,7 @@ dotnet test
 
 ## Acceptance
 - [x] M7-A1. Each of the six spec edge cases has at least one automated test that fails when the behaviour is removed.
-- [ ] M7-A2. E2E covers enroll, successful step-up, failed step-up with fallback, and consent withdrawal, and runs in CI.
+- [x] M7-A2. E2E covers enroll, successful step-up, failed step-up with fallback, and consent withdrawal, and runs in CI. (Evidence: the e2e job is green in PR #1, run https://github.com/alfredorevilla/voice-step-up/actions/runs/39668842733.)
 - [x] M7-A3. Line coverage on Core and Api is at least 80%, or the gap is explained in the README.
 - [x] M7-A4. The test-quality audit and security review have no open medium-or-higher findings.
 
