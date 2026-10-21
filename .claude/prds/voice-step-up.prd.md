@@ -20,7 +20,7 @@ We'll know we're right when a reviewer can run it with one command, read measure
 | One-command run on a clean clone | Works, health endpoints healthy | M8-A1 |
 | False-accept and false-reject rates | Reported per threshold and condition, with intervals and limits | The published evaluation report (M6-A2, M6-A4) |
 | Tests cover flows and edge cases and run in CI | CI green | M7-A1, M7-A2, M8-A4 |
-| Acceptance items complete | 46 of 46 | Definition of Done below |
+| Acceptance items complete | 48 of 48 | Definition of Done below |
 
 ## Scope
 **MVP**: an ASP.NET Core service adds voice step-up to an Entra ID sign-in. A service-side policy requires step-up, the browser records a short random phrase, a pluggable `IVerifier` backed by a self-hosted open-source model returns pass or fail with a score, and on pass the service issues an `amr` claim of `vbm`. Otherwise it falls back to Entra MFA re-authentication. Voice is one step-up factor, never the only one. A small SPA handles enrollment and step-up.
@@ -68,8 +68,8 @@ We'll know we're right when a reviewer can run it with one command, read measure
 
 | # | Milestone | Outcome | Depends on | Status | Plan |
 |---|---|---|---|---|---|
-| M0 | Foundation and probe | A buildable, tested, CI-checked repo, and a recorded read-only check of what the tenant allows. | none | pending | [plan](../plans/voice-step-up.m0-foundation.plan.md) |
-| M1 | Design: architecture, ADRs and design-level threat model | A reviewed architecture, decision records and design-level threat model that the parallel milestones build against. | none (runs alongside M0) | pending | [plan](../plans/voice-step-up.m1-design.plan.md) |
+| M0 | Foundation and probe | A buildable, tested, CI-checked repo, and a recorded read-only check of what the tenant allows. | none | in-progress | [plan](../plans/voice-step-up.m0-foundation.plan.md) |
+| M1 | Design: architecture, ADRs and design-level threat model | A reviewed architecture, decision records and design-level threat model that the parallel milestones build against. | none (runs alongside M0) | in-progress | [plan](../plans/voice-step-up.m1-design.plan.md) |
 | M2 | Core domain, policy and API (fake verifier) | Step-up policy, single-use challenges, the signed vbm assertion, consent, deletion and the analyst log work end to end with a fake verifier. | M0, M1 | pending | [plan](../plans/voice-step-up.m2-core.plan.md) |
 | M3 | Real verifier and audio pipeline | Real speaker verification on CPU with phrase liveness and quality gates, running in a container. | M2 | pending | [plan](../plans/voice-step-up.m3-verifier.plan.md) |
 | M4 | SPA | A user can sign in, consent, enroll and step up from the browser, and the analyst can see attempts. | M2 | pending | [plan](../plans/voice-step-up.m4-spa.plan.md) |
@@ -92,10 +92,10 @@ We'll know we're right when a reviewer can run it with one command, read measure
 | Model and dataset licence obligations | Low | Medium | Attribution in `NOTICE`; fetch scripts, not redistribution |
 
 ## Definition of Done
-Every item below must be checked. The text of each item lives in its milestone plan; this list is the complete union of the Acceptance lists of M0 to M8 (46 items). A completeness check compares the item ids in the plans with this list.
+Every item below must be checked. The text of each item lives in its milestone plan; this list is the complete union of the Acceptance lists of M0 to M8 (48 items). A completeness check compares the item ids in the plans with this list.
 - [ ] M0-A1, M0-A2, M0-A3, M0-A4
 - [ ] M1-A1, M1-A2, M1-A3, M1-A4, M1-A5
-- [ ] M2-A1, M2-A2, M2-A3, M2-A4, M2-A5, M2-A6, M2-A7
+- [ ] M2-A1, M2-A2, M2-A3, M2-A4, M2-A5, M2-A6, M2-A7, M2-A8, M2-A9
 - [ ] M3-A1, M3-A2, M3-A3, M3-A4, M3-A5
 - [ ] M4-A1, M4-A2, M4-A3, M4-A4, M4-A5
 - [ ] M5-A1, M5-A2, M5-A3, M5-A4, M5-A5

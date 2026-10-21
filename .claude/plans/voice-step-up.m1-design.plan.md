@@ -51,7 +51,8 @@ No application code exists yet, so there is nothing to mirror. Conventions come 
 ## Validation
 ```bash
 # every decision D1..D11 maps to an ADR; every endpoint named in M2 T2.5 appears in the API contract
-grep -c '^Status:' docs/adr/*.md
+grep -c '^Status:' docs/adr/0*.md   # each ADR file prints 1; README.md prints 0 by design
+for d in D1 D2 D3 D4 D5 D6 D7 D8 D9 D10 D11; do grep -lE "^Decisions:.*\b$d\b" docs/adr/0*.md | wc -l; done   # each prints 1
 ```
 
 ## Risks
@@ -61,11 +62,11 @@ grep -c '^Status:' docs/adr/*.md
 | Design drifts from the code later | Medium | M8 T8.3 checks every ADR and doc against the code |
 
 ## Acceptance
-- [ ] M1-A1. `docs/architecture.md` contains the component and trust-boundary view, the four sequences, the data model and the API contract.
-- [ ] M1-A2. ADRs 0001 to 0008 exist, each of D1 to D11 maps to one, and each lists the alternatives considered.
-- [ ] M1-A3. `docs/threat-model.md` v0 exists and every seed threat maps to an invariant or to a named test in a later milestone.
-- [ ] M1-A4. The `/teammates` architecture and rules reviews ran, changes and rejections with reasons are recorded, and the user confirmed.
-- [ ] M1-A5. No ADR is Proposed except those marked pending a named spike (0002 until T3.1, 0004 until T5.4).
+- [x] M1-A1. `docs/architecture.md` contains the component and trust-boundary view, the four sequences, the data model and the API contract.
+- [x] M1-A2. ADRs 0001 to 0008 exist, each of D1 to D11 maps to one, and each lists the alternatives considered.
+- [x] M1-A3. `docs/threat-model.md` v0 exists and every seed threat maps to an invariant or to a named test in a later milestone.
+- [ ] M1-A4. The `/teammates` architecture and rules reviews ran, changes and rejections with reasons are recorded, and the user confirmed. (Architecture panel done 2026-10-21: 4 opus reviewers, verdict apply F1-F10, F12, F13, reject F11 in part and F14; recorded in `docs/architecture.md` section 9 and the ADRs. By the user's 2026-10-21 instruction the `/teammates` verdict replaces the user's confirmation. Rules panel result still to be recorded.)
+- [x] M1-A5. No ADR is Proposed except those marked pending a named spike (0002 until T3.1, 0004 until T5.4).
 
 ## Finish
 Use `/goal` (fix all medium and higher or blocking issues found and ensure all plan acceptance criteria items are done) or turn eq 3 (a fix loop capped at 3 turns). Then use `/code-review` (ECC's). `/goal` exists nowhere on this machine as of 2026-10-20 (no command file, skill or plugin entry), so the 3-turn fix loop is the Finish step. It is deliberately not in the Tooling table, so it cannot halt the pre-execution gate.

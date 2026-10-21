@@ -21,9 +21,9 @@ Mirror the code written in the earlier milestones; the plan is re-grounded befor
 | tests/StepUp.Verifier.Tests | UPDATE | Contract suite for the new verifiers |
 
 ## Tasks
-- **T3.1** Spike with go/no-go: sherpa ASR (Whisper tiny.en first) checksum-verified, latency on 20 short clips. Record the outcome in ADR-0002. If p95 latency is above 3 s, choose a smaller model or stop and ask. After the spike, write `docs/design/verifier.md` (ingest limits, quality gates and reason codes, how enrollment samples are combined, phrase-check thresholds, concurrency) before T3.3, and set ADR-0002 to Accepted or Changed.
+- **T3.1** Spike with go/no-go: sherpa ASR (Whisper tiny.en first) checksum-verified, latency on 20 short clips (p95 of embedding plus ASR together, inside the 3 s timeout) and an accuracy gate: phrase-accept rate on recorded 4-word phrases and reject rate on wrong phrases (test that Whisper does not hallucinate on short or near-silent input). Fix the word-error-rate rule and text normalisation (case, numbers, punctuation, word order). State the challenge word-list size and phrase entropy, and keep enrollment words out of the challenge list. Record the outcome in ADR-0002. If p95 latency is above 3 s, choose a smaller model or stop and ask. After the spike, write `docs/design/verifier.md` (ingest limits, quality gates with numeric values (peak and RMS floor, clipping ratio, minimum net speech after voice activity detection, the SNR method; clipping maps to `Noisy`; a quality reject does not consume the challenge), how enrollment samples are combined (L2-normalise each, mean, normalise again; pairwise consistency floor from M6; ASR check of enrollment phrases), phrase-check thresholds, concurrency) before T3.3, and set ADR-0002 to Accepted or Changed.
 - **T3.2** WAV ingest and validation (PCM16 mono 16 kHz, max 10 s, max 1 MB) and quality gates (too short, muted, clipped, low SNR) with reason codes; synthetic-signal tests.
-- **T3.3** `SherpaVerifier` (sherpa-onnx C# API checked with Context7): embedding extraction, own cosine, enrollment as the normalized mean of 3 samples, model id stored, thresholds from `IThresholdStore`, timeout via cancellation.
+- **T3.3** `SherpaVerifier` (sherpa-onnx C# API checked with Context7): embedding extraction, own cosine, enrollment as the normalized mean of 3 samples (configurable), `ModelId` as defined in `docs/architecture.md` section 3 stored with the voiceprint (mismatch returns `ReEnrollRequired`), the verifier returns the probe embedding and the Api scores, thresholds from `IThresholdStore`, timeout via cancellation.
 - **T3.4** Phrase check: sherpa offline recognizer plus word error rate against the challenge phrase.
 - **T3.5** Concurrency and threads: one extractor instance, bounded concurrent verifications, configurable thread count.
 - **T3.6** `scripts/fetch-models.sh` with `models/models.lock` SHA-256 check; `Dockerfile` (multi-stage, non-root, Debian-based ASP.NET image) and compose healthcheck (`docker-patterns`). Validate: the native library loads inside the container.
@@ -40,7 +40,7 @@ docker build . && docker compose up --wait
 |---|---|---|
 | ASR phrase check too slow or inaccurate on short random phrases | Medium | T3.1 go/no-go spike; phonetically distinct word list; a failed phrase check is a fail that falls back, never a lockout |
 | Native sherpa library does not load in the container | Medium | Debian-based ASP.NET image (not Alpine); load test in T3.6 |
-| Raw cosine scores separate poorly for some speakers | Medium | Calibrated thresholds and cohort normalization from M6 |
+| Raw cosine scores separate poorly for some speakers | Medium | Thresholds and, only if the M6 protocol adopts it, cohort normalization from M6 (scores are never called calibrated) |
 
 ## Acceptance
 - [ ] M3-A1. The model download is checksum-verified and the verifier runs on CPU in WSL2 and in the container; measured latency per verification is recorded.
