@@ -1,6 +1,6 @@
 # ADR-0003: Own cosine score and browser WAV capture
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-20
 Decisions: D3, D4
 
@@ -8,14 +8,18 @@ Decisions: D3, D4
 The analyst needs a numeric score per attempt. sherpa-onnx `SpeakerEmbeddingManager.Verify` returns only a boolean. The server should not decode browser codecs.
 
 ## Decision
-- The service computes cosine similarity from the enrolled and probe embeddings.
-- The browser captures PCM with an AudioWorklet and uploads 16 kHz mono PCM16 WAV (max 10 s, max 1 MB).
+- The service computes cosine similarity from the enrolled and probe embeddings. The verifier returns the probe embedding; the stored embedding never leaves the Api.
+- `ModelId` = SHA-256 of `models/models.lock` + sherpa-onnx version + feature and normalisation config version. Thresholds and attempts are keyed by `ModelId`. A stored voiceprint with another `ModelId` fails closed with `ReEnrollRequired` and the fallback is offered.
+- Enrollment: each sample embedding is L2-normalised, averaged, and normalised again; samples whose pairwise cosine is below a consistency floor (set in M6) are rejected.
+- The browser captures PCM with an AudioWorklet and uploads 16 kHz mono PCM16 WAV (max 10 s, max 1 MB). `getUserMedia` constraints `echoCancellation`, `noiseSuppression` and `autoGainControl` are all false, and the resampler low-pass filters (sine-sweep unit test).
+- Scores are cosine values, never called calibrated. Cohort normalisation is adopted only if the M6 protocol says so; then a cohort-set id joins `ModelId` and `Attempts`.
 
 ## Alternatives considered
 - Use `Verify` and log only pass or fail: no score for threshold tuning.
 - Upload WebM/Opus from `MediaRecorder` and decode with ffmpeg: adds a native dependency and a decoding attack surface.
 - Resample on the server: spreads audio handling across two places.
+- Leave the browser's default audio processing on: it changes the spectrum differently per browser.
 
 ## Consequences
 - Thresholds are in cosine units and tied to the model id.
-- The SPA owns resampling; a bad worklet gives bad audio, caught by the quality gates.
+- The SPA owns resampling; a bad worklet gives bad audio, caught by the quality gates. Channel and browser mismatch with the evaluation data is a stated limit.
