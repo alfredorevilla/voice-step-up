@@ -25,7 +25,7 @@ The loop ends when any one holds:
 - All nine plans have every task and Acceptance box ticked and each Finish step is done (success).
 - A task fails 3 fix turns in a row (halt, report).
 - A declared tool becomes unavailable mid-run (halt, report; no substitute).
-- A user-in-the-loop task is reached: M1 T1.5 (present changes), M5 T5.4 (live sign-in spike). Pause and ask.
+- A decision gate is reached (M1 T1.5, M5 T5.4 acceptance): do not pause for the user; use the decision routing below.
 - An outward action not named below is needed (halt, record as pending).
 
 ## Autonomy terms
@@ -40,3 +40,12 @@ The loop ends when any one holds:
 
 - Monitor: `/loop-status`
 - Resume after a halt: `/loop-start rfc-dag --mode fast` (resumes at the first unticked task)
+
+## Decision routing (user instruction, 2026-10-21)
+
+`/teammates` and `/council` replace the human in the loop:
+
+- Any confirmation or decision on architecture or design: `/teammates` panel. This covers M1 T1.5 (the panel verdict replaces the user's confirmation) and ADR status changes.
+- Any other go/no-go confirmation or decision: `/council`.
+- Record each verdict, its reasoning and the rejected alternatives in the plan or ADR it affects.
+- Unchanged: outward actions (push, PR, issue, message) stay pending unless a council verdict explicitly approves one and the verdict is recorded; secrets and the TOTP rules still apply.
