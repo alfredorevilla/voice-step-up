@@ -16,6 +16,17 @@ trap 'rm -rf "$tmp"' EXIT
 
 sha_of() { sha256sum "$1" | cut -d' ' -f1; }
 
+# True when every "verify" line under directory $1 (relative to models/) is present with the right hash.
+dir_verified() {
+  local ok=1 scope kind sha path _
+  while read -r scope kind sha path _; do
+    [ "$kind" = "verify" ] || continue
+    [[ "$path" == "$1/"* ]] || continue
+    if [ ! -f "$models/$path" ] || [ "$(sha_of "$models/$path")" != "$sha" ]; then ok=0; fi
+  done < "$lock"
+  [ "$ok" -eq 1 ]
+}
+
 while read -r scope kind sha path url; do
   case "${scope:-}" in ''|'#'*) continue ;; esac
   if [ "$scope" = "test" ] && [ "$with_test" -eq 0 ]; then continue; fi
@@ -26,7 +37,7 @@ while read -r scope kind sha path url; do
       if [[ "$path" == *.tar.bz2 ]]; then
         dir="$models/${path%.tar.bz2}"
         marker="$dir/.fetched-$sha"
-        if [ -f "$marker" ]; then echo "ok (present) $path"; continue; fi
+        if [ -f "$marker" ] && dir_verified "${path%.tar.bz2}"; then echo "ok (present) $path"; continue; fi
         archive="$tmp/$path"
         curl -fL --retry 3 -sS -o "$archive" "$url"
         got="$(sha_of "$archive")"
