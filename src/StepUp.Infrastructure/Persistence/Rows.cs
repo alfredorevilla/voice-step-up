@@ -60,7 +60,8 @@ public sealed class UsedAssertionRow
 
 public sealed class ThresholdRow
 {
-    public Guid Id { get; set; }
+    /// <summary>Auto-increment, so the newest row wins even within the same millisecond.</summary>
+    public long Id { get; set; }
     public string Name { get; set; } = "";
     public string ModelId { get; set; } = "";
     public double Value { get; set; }

@@ -178,7 +178,7 @@ public sealed class AttemptLog(IDbContextFactory<StepUpDbContext> factory) : IAt
         var voice = (int)AttemptMode.Voice;
         var decided = new[] { (int)AttemptResult.Pass, (int)AttemptResult.Fail };
         var recent = await db.Attempts.AsNoTracking()
-            .Where(a => a.UserKey == user.Value && a.Mode == voice && a.At > since && decided.Contains(a.Result))
+            .Where(a => a.UserKey == user.Value && a.Mode == voice && a.At >= since && decided.Contains(a.Result))
             .OrderByDescending(a => a.At)
             .Select(a => new { a.Result, a.At })
             .ToListAsync(cancellationToken);
@@ -195,7 +195,7 @@ public sealed class ThresholdStore(IDbContextFactory<StepUpDbContext> factory) :
         await using var db = await factory.CreateDbContextAsync(cancellationToken);
         var row = await db.Thresholds.AsNoTracking()
             .Where(t => t.Name == name && t.ModelId == modelId)
-            .OrderByDescending(t => t.UpdatedAt)
+            .OrderByDescending(t => t.Id)
             .FirstOrDefaultAsync(cancellationToken);
         return row is null ? null : ToEntry(row);
     }
@@ -205,7 +205,6 @@ public sealed class ThresholdStore(IDbContextFactory<StepUpDbContext> factory) :
         await using var db = await factory.CreateDbContextAsync(cancellationToken);
         db.Thresholds.Add(new ThresholdRow
         {
-            Id = Guid.NewGuid(),
             Name = entry.Name,
             ModelId = entry.ModelId,
             Value = entry.Value,
@@ -218,7 +217,7 @@ public sealed class ThresholdStore(IDbContextFactory<StepUpDbContext> factory) :
     public async Task<IReadOnlyList<ThresholdEntry>> ListAsync(CancellationToken cancellationToken)
     {
         await using var db = await factory.CreateDbContextAsync(cancellationToken);
-        var rows = await db.Thresholds.AsNoTracking().OrderByDescending(t => t.UpdatedAt).ToListAsync(cancellationToken);
+        var rows = await db.Thresholds.AsNoTracking().OrderByDescending(t => t.Id).ToListAsync(cancellationToken);
         return [.. rows.Select(ToEntry)];
     }
 
@@ -274,15 +273,11 @@ public sealed class UsedAssertionStore(IDbContextFactory<StepUpDbContext> factor
     public async Task<bool> TryUseAsync(string jti, DateTimeOffset expiresAt, CancellationToken cancellationToken)
     {
         await using var db = await factory.CreateDbContextAsync(cancellationToken);
-        db.UsedAssertions.Add(new UsedAssertionRow { Jti = jti, ExpiresAt = Ms.Of(expiresAt) });
-        try
-        {
-            await db.SaveChangesAsync(cancellationToken);
-            return true;
-        }
-        catch (DbUpdateException)
-        {
-            return false;
-        }
+        var expires = Ms.Of(expiresAt);
+
+        // One atomic statement: exactly one caller inserts the jti, a replay inserts nothing and raises no exception.
+        var inserted = await db.Database.ExecuteSqlInterpolatedAsync(
+            $"INSERT OR IGNORE INTO UsedAssertions (Jti, ExpiresAt) VALUES ({jti}, {expires})", cancellationToken);
+        return inserted == 1;
     }
 }
