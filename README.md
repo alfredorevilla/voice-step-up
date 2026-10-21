@@ -106,6 +106,25 @@ Voice is special-category data under GDPR Article 9. This project is not legal a
 8. **The offline demo's sign-in is fake** and mints any identity. It must not face a network.
 9. **Not hardened for production.** The code had independent review passes during development, but no secret scan or image-layer check runs in CI, and the deployment shape (single instance, SQLite, local key ring) is a demo's.
 
+## Environment
+
+<!-- AUTO-GENERATED from scripts/lib-entra.sh and web/src/config.ts by /update-docs -->
+
+The Entra scripts read these from the environment or from the git-ignored `.env.local` (the environment wins). The offline demo needs none of them.
+
+| Variable | Required | Description |
+|---|---|---|
+| `VOICE_STEPUP_TENANT` | Yes | Entra tenant id; every script asserts the signed-in tenant equals it before any change |
+| `VOICE_STEPUP_SUBSCRIPTION` | Yes | Azure subscription id passed to every `az` call |
+| `VOICE_STEPUP_API_CLIENT_ID`, `VOICE_STEPUP_SPA_CLIENT_ID`, `VOICE_STEPUP_API_SCOPE` | After deploy | Written by `scripts/entra-deploy.sh`; read by `scripts/demo-entra.sh` |
+| `VOICE_STEPUP_RG` | No | Resource group, default `rg-voice-step-up` |
+| `VOICE_STEPUP_API_UNIQUE_NAME`, `VOICE_STEPUP_SPA_UNIQUE_NAME` | No | Fixed keys of the two app registrations, defaults `voice-step-up-api` and `voice-step-up-spa` |
+| `AZ` | No | Path to the Azure CLI when `az` is not on `PATH` |
+
+The SPA reads build-time variables, set for you by the compose file and `scripts/demo-entra.sh`: `VITE_AUTH_MODE` (`fake` or `entra`, default `fake`), `VITE_API_BASE` (default `http://localhost:5000`), `VITE_AUTHORITY` (default `http://localhost:5100`), `VITE_CLIENT_ID` and `VITE_API_SCOPE`.
+
+<!-- END AUTO-GENERATED -->
+
 ## Build and test
 
 ```bash
