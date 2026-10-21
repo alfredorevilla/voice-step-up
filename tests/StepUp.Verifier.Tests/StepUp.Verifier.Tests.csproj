@@ -13,6 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\StepUp.Core\StepUp.Core.csproj" />
     <ProjectReference Include="..\..\src\StepUp.Infrastructure\StepUp.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\StepUp.Verifier.Sherpa\StepUp.Verifier.Sherpa.csproj" />
   </ItemGroup>
 
 </Project>

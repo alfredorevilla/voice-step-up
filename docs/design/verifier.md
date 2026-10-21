@@ -29,10 +29,10 @@ Order of checks, first hit wins:
 |---|---|---|---|
 | 1 | Muted | peak < 0.01 (-40 dBFS) or whole-clip RMS < 0.003 (-50 dBFS) | `Muted` |
 | 2 | Clipped | at least 1% of samples have a magnitude of 32700 or more | `Noisy` (clipping maps to `Noisy`) |
-| 3 | No speech | fewer than 0.8 s of net speech (below). If the median frame level is -40 dBFS or louder, the clip is loud non-speech | `Noisy` if loud non-speech, else `TooShort` |
+| 3 | No speech | fewer than 0.8 s of net speech (below). If there is under 0.2 s of speech frames and the median frame level is -40 dBFS or louder, the clip is loud non-speech | `Noisy` if loud non-speech, else `TooShort` |
 | 4 | Low SNR | SNR below 10 dB | `Noisy` |
 
-Net speech = frames at or above `max(noiseFloor + 10 dB, -45 dBFS)`, where `noiseFloor` is the 10th percentile of frame levels. SNR = `10 log10(mean power of speech frames / mean power of the quietest 10% of frames)`; the denominator is floored at 1e-10.
+Net speech = frames at or above `max(noiseFloor + 6 dB, -45 dBFS)`, where `noiseFloor` is the 10th percentile of frame levels. SNR = `10 log10(mean power of speech frames / mean power of the quietest 10% of frames)`; the denominator is floored at 1e-10.
 
 A quality reject does not consume the challenge, is logged as `Rejected`, and does not count toward the lockout (Api, M2). These energy gates are not a speech detector: music or a TV in the background can pass them. That is a stated limit.
 
