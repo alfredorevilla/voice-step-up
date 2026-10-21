@@ -119,6 +119,14 @@ describe("PKCE client", () => {
     expect(returnTo).toBe("home");
   });
 
+  it("clears the query and fails generically when the authority returns an error", async () => {
+    const { deps, store } = setup("?error=access_denied&error_description=%3Cb%3Ebad%3C%2Fb%3E&state=s");
+    store.set("pkce.state", "s");
+    await expect(createPkceClient(config, deps).init()).rejects.toThrow("Sign-in was not completed. Try again.");
+    expect(deps.history.replaceState).toHaveBeenCalledWith(null, "", "/");
+    expect(store.has("pkce.state")).toBe(false);
+  });
+
   it("rejects a response whose state does not match", async () => {
     const first = setup();
     await createPkceClient(config, first.deps).signIn();

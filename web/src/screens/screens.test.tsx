@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
 import { describe, expect, it, vi } from "vitest";
@@ -101,6 +101,38 @@ describe("RecorderPanel (M4-A2)", () => {
     await userEvent.click(screen.getByRole("button", { name: "Stop and send" }));
     await waitFor(() => expect(onRecorded).toHaveBeenCalledOnce());
     expect(onRecorded.mock.calls[0][0]).toBeInstanceOf(ArrayBuffer);
+  });
+
+  it("keeps a denied or failed microphone message past the auto-stop time", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      render(<RecorderPanel phrase="amber river stone lamp" createRecorder={fakeRecorder("denied")} onRecorded={() => undefined} />);
+      await userEvent.click(screen.getByRole("button", { name: "Start recording" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent(/Microphone access was blocked/);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      expect(screen.getByRole("alert")).toHaveTextContent(/Microphone access was blocked/);
+      expect(screen.getByRole("button", { name: "Try the microphone again" })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops a running recording after the time limit", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const onRecorded = vi.fn();
+      render(<RecorderPanel phrase="amber river stone lamp" createRecorder={fakeRecorder("ok")} onRecorded={onRecorded} />);
+      await userEvent.click(screen.getByRole("button", { name: "Start recording" }));
+      await screen.findByLabelText("Microphone level");
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(9_000);
+      });
+      expect(onRecorded).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("shows the phrase to read", () => {

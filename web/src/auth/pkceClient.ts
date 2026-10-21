@@ -118,6 +118,17 @@ export function createPkceClient(
       const state = params.get("state");
       let returnTo: string | null = null;
       if (code && state) returnTo = await completeRedirect(code, state);
+      else if (params.has("error")) {
+        // The authority refused or the user cancelled. Drop the query and the pending request, say it generically.
+        // Only an error that carries our own state ends the pending request; a crafted link must not cancel it.
+        if (state && state === deps.storage.getItem(KEY.state)) {
+          deps.storage.removeItem(KEY.state);
+          deps.storage.removeItem(KEY.verifier);
+          deps.storage.removeItem(KEY.returnTo);
+        }
+        deps.history.replaceState(null, "", deps.location.pathname);
+        throw new Error("Sign-in was not completed. Try again.");
+      }
       const session: AuthSession | null = accessToken ? { roles: rolesOf(accessToken) } : null;
       return { session, returnTo };
     },

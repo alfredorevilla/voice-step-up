@@ -40,6 +40,26 @@ function stubAudio() {
   return { env, push, pushAll, closed, stopped };
 }
 
+describe("createMicRecorder cancel during getUserMedia", () => {
+  it("stops the tracks of a stream that arrives after the cancel", async () => {
+    const stopped = vi.fn();
+    let grant!: (stream: MediaStream) => void;
+    const env: MicEnv = {
+      getUserMedia: () => new Promise<MediaStream>((resolve) => (grant = resolve)),
+      createContext: () => {
+        throw new Error("must not be reached");
+      },
+      workletUrl: "/pcm-worklet.js",
+    };
+    const recorder = createMicRecorder(env);
+    const starting = recorder.start(() => undefined);
+    recorder.cancel();
+    grant({ getTracks: () => [{ stop: stopped }] } as unknown as MediaStream);
+    await starting;
+    expect(stopped).toHaveBeenCalledOnce();
+  });
+});
+
 describe("createMicRecorder capture path", () => {
   afterEach(() => vi.unstubAllGlobals());
 

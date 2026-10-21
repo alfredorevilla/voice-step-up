@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Api } from "../api/client";
 import { explain } from "../messages";
 
@@ -12,6 +12,11 @@ export function Privacy({ api, onDone }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const confirmGroup = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (confirming) confirmGroup.current?.focus();
+  }, [confirming]);
 
   async function withdraw() {
     setError(null);
@@ -44,7 +49,7 @@ export function Privacy({ api, onDone }: Props) {
               </button>
             </div>
           ) : (
-            <div role="group" aria-label="Confirm deletion">
+            <div role="group" aria-label="Confirm deletion" tabIndex={-1} ref={confirmGroup}>
               <p>
                 <strong>Delete your voiceprint and withdraw consent?</strong>
               </p>

@@ -30,7 +30,8 @@ function readPending(): PayoutRequest | null {
 export function StepUp({ api, createRecorder, returnedFromMfa, onFallback, onDone }: Props) {
   const [amount, setAmount] = useState("250");
   const [to, setTo] = useState("ACME Supplies");
-  const [phase, setPhase] = useState<Phase>("form");
+  // A return from multi-factor sign-in with a saved payout retries it at once, so the form must not be offered.
+  const [phase, setPhase] = useState<Phase>(() => (returnedFromMfa && readPending() ? "sending" : "form"));
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [payout, setPayout] = useState<PayoutRequest | null>(null);
   const [error, setError] = useState<string | null>(null);

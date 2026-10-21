@@ -67,6 +67,32 @@ describe("App journey (M4-A1, against in-memory stand-ins)", () => {
     expect(window.sessionStorage.getItem(PENDING_PAYOUT_KEY)).toBeNull();
   });
 
+  it("does not offer the payout form while a saved payout is being retried after multi-factor sign-in", async () => {
+    window.sessionStorage.setItem(PENDING_PAYOUT_KEY, JSON.stringify({ amount: 250, to: "ACME Supplies" }));
+    const { api, state } = fakeApi({ me: { consent: true, enrolled: true } });
+    state.freshMfa = true;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const slow = { ...api, payout: async (...args: Parameters<typeof api.payout>) => (await gate, api.payout(...args)) };
+    const { auth } = fakeAuth([], "stepup", true);
+    render(<App auth={auth} api={slow} createRecorder={fakeRecorder()} />);
+
+    expect(await screen.findByRole("heading", { name: "High-risk payout" })).toBeInTheDocument();
+    expect(screen.getByText("Working…")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Pay" })).not.toBeInTheDocument();
+    release();
+    expect(await screen.findByRole("heading", { name: "Payout accepted" })).toBeInTheDocument();
+  });
+
+  it("moves focus to the heading of the screen it navigates to", async () => {
+    const { auth } = fakeAuth([], null, true);
+    const { api } = fakeApi({ me: { consent: true, enrolled: true } });
+    render(<App auth={auth} api={api} createRecorder={fakeRecorder()} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: /Privacy/ }));
+    expect(await screen.findByRole("heading", { name: "Privacy" })).toHaveFocus();
+  });
+
   it("sends a user with no voiceprint straight to the fallback offer", async () => {
     const { auth } = fakeAuth([], null, true);
     const { api } = fakeApi({ me: { consent: false, enrolled: false } });

@@ -27,7 +27,10 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), csp(origins)],
     server: { port: 5173, strictPort: true },
-    preview: { port: 5173, strictPort: true, headers: { "Content-Security-Policy": buildCsp(origins) } },
+    preview: { port: 5173, strictPort: true, headers: {
+        // frame-ancestors is ignored in a <meta> policy, so it is only set on the HTTP header.
+        "Content-Security-Policy": `${buildCsp(origins)}; frame-ancestors 'none'`,
+      }, },
     test: {
       environment: "jsdom",
       setupFiles: ["./src/test/setup.ts"],

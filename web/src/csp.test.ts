@@ -23,6 +23,10 @@ describe("buildCsp (TM-016)", () => {
     expect(directive("connect-src")).toBe("connect-src 'self' http://localhost:5000 http://localhost:5100");
   });
 
+  it("leaves frame-ancestors to the HTTP header, since a meta policy ignores it", () => {
+    expect(policy).not.toContain("frame-ancestors");
+  });
+
   it("keeps Entra's origin when the authority is Entra", () => {
     const entra = buildCsp({ apiBase: "https://api.example.test", authority: "https://login.microsoftonline.com/tenant" });
     expect(entra).toContain("connect-src 'self' https://api.example.test https://login.microsoftonline.com");

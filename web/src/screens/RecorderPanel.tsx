@@ -22,15 +22,25 @@ export function RecorderPanel({ phrase, createRecorder, onRecorded, onFallback, 
     () => () => {
       if (timer.current) clearTimeout(timer.current);
       recorder.current?.cancel();
+      recorder.current = null;
     },
     [],
   );
 
   async function start() {
     recorder.current?.cancel();
-    recorder.current = createRecorder();
-    await recorder.current.start(setState);
-    timer.current = setTimeout(() => void stop(), MAX_SECONDS * 1000);
+    if (timer.current) clearTimeout(timer.current);
+    const active = createRecorder();
+    recorder.current = active;
+    let last = "idle" as RecorderState["kind"];
+    await active.start((next) => {
+      last = next.kind;
+      setState(next);
+    });
+    // Only a recording that actually started gets the time limit; a denied or failed start keeps its message.
+    if (recorder.current === active && (last === "recording" || last === "muted")) {
+      timer.current = setTimeout(() => void stop(), MAX_SECONDS * 1000);
+    }
   }
 
   async function stop() {

@@ -46,8 +46,12 @@ export function createMicRecorder(env: MicEnv = browserMicEnv): Recorder {
   let chunks: Float32Array[] = [];
   let peaks: number[] = [];
   let sampleRate = 48_000;
+  // Bumped by every start/release, so a start that is still awaiting the microphone or the worklet can tell it was
+  // cancelled and must not leave the microphone open.
+  let generation = 0;
 
   const release = () => {
+    generation++;
     node?.disconnect();
     stream?.getTracks().forEach((track) => track.stop());
     void context?.close();
@@ -61,9 +65,16 @@ export function createMicRecorder(env: MicEnv = browserMicEnv): Recorder {
       chunks = [];
       peaks = [];
       onState({ kind: "requesting" });
+      const mine = ++generation;
       try {
-        stream = await env.getUserMedia(AUDIO_CONSTRAINTS);
+        const opened = await env.getUserMedia(AUDIO_CONSTRAINTS);
+        if (mine !== generation) {
+          opened.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        stream = opened;
       } catch (error) {
+        if (mine !== generation) return;
         const name = error instanceof DOMException ? error.name : "";
         if (name === "NotAllowedError" || name === "SecurityError" || name === "PermissionDeniedError") {
           onState({ kind: "denied" });
@@ -77,6 +88,7 @@ export function createMicRecorder(env: MicEnv = browserMicEnv): Recorder {
         context = env.createContext();
         sampleRate = context.sampleRate;
         await context.audioWorklet.addModule(env.workletUrl);
+        if (mine !== generation) return;
         const source = context.createMediaStreamSource(stream);
         node = new AudioWorkletNode(context, "pcm-capture");
         node.port.onmessage = (event: MessageEvent<Float32Array>) => {
@@ -94,6 +106,7 @@ export function createMicRecorder(env: MicEnv = browserMicEnv): Recorder {
         source.connect(node);
         onState({ kind: "recording", level: 0 });
       } catch {
+        if (mine !== generation) return;
         release();
         onState({ kind: "error", message: "The microphone could not be read." });
       }

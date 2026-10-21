@@ -80,6 +80,16 @@ export function App({ auth, api, createRecorder, demoUsers }: AppProps) {
     [auth],
   );
 
+  // Move focus to the new screen's heading so keyboard and screen-reader users land on it.
+  useEffect(() => {
+    if (status === "loading") return;
+    const heading = document.querySelector<HTMLElement>("main h1");
+    if (heading) {
+      heading.tabIndex = -1;
+      heading.focus();
+    }
+  }, [screen, status]);
+
   if (status === "loading") {
     return (
       <main>
