@@ -47,6 +47,38 @@ public sealed class AuthModeTests
         Assert.Contains("Demo:Enabled", ex.ToString(), StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("common")]
+    [InlineData("organizations")]
+    [InlineData("https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000")]
+    public void Startup_RefusesEntraModeWithoutAGuidTenantId(string? tenant)
+    {
+        var temp = Path.Combine(Path.GetTempPath(), "stepup-guard-" + Guid.NewGuid().ToString("N"));
+        var config = new Dictionary<string, string?>
+        {
+            ["Auth:Mode"] = "Entra",
+            ["AzureAd:Authority"] = "https://login.microsoftonline.com/common/v2.0",
+            ["AzureAd:ClientId"] = "00000000-0000-0000-0000-000000000000",
+            ["AzureAd:Audience"] = "api://voice-step-up",
+            ["Verifier:Mode"] = "Fake",
+            ["Demo:Enabled"] = "true",
+            ["Storage:DatabasePath"] = Path.Combine(temp, "db"),
+            ["Storage:KeyDirectory"] = Path.Combine(temp, "keys"),
+        };
+        if (tenant is not null)
+        {
+            config["AzureAd:TenantId"] = tenant;
+        }
+
+        using var factory = Configured("Development", config);
+
+        var ex = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+
+        Assert.Contains("AzureAd:TenantId", ex.ToString(), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Startup_RefusesTheFakeVerifierOutsideDemo()
     {

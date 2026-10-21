@@ -17,7 +17,13 @@ public static class AuthSetup
     {
         var mode = builder.Configuration["Auth:Mode"] ?? "Entra";
         // Single tenant: in Entra mode the token's tid must be the configured one, on top of Identity.Web's issuer validation.
+        // Without a GUID tenant id the check would silently switch off and a multi-tenant registration would be accepted, so refuse to start.
         var expectedTid = mode == "Entra" ? builder.Configuration["AzureAd:TenantId"] : null;
+        if (mode == "Entra" && !Guid.TryParse(expectedTid, out _))
+        {
+            throw new InvalidOperationException(
+                "Auth:Mode=Entra needs AzureAd:TenantId set to the single tenant GUID (not 'common', 'organizations' or an authority URL).");
+        }
         var authentication = builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme);
 
         switch (mode)
