@@ -59,16 +59,53 @@ jobs:
         run: az bicep lint --file infra/entra.bicep
 
   container:
+    # The API with the real verifier: the image fetches and checks the models, then the health check must pass.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Build the image (fetches and checks the models) and wait for the health check
-        run: docker compose up --build --wait --wait-timeout 300
+      - name: Build the image and wait for the health check
+        run: docker compose --profile real up --build --wait --wait-timeout 600 api-real
       - name: Show the logs if it did not come up
         if: failure()
-        run: docker compose logs api
+        run: docker compose --profile real logs api-real
+      - run: docker compose --profile real down -v
+        if: always()
+
+  demo:
+    # The one-command offline demo: compose config, then the three services healthy, then a real sign-in and API call.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Compose files are valid
+        run: docker compose --profile real config --quiet
+      - name: Start the demo and wait for the health checks
+        run: docker compose up --build --wait --wait-timeout 600
+      - name: Sign in and call the API
+        run: node scripts/demo-smoke.mjs
+      - name: Show the logs if it failed
+        if: failure()
+        run: docker compose logs
       - run: docker compose down -v
         if: always()
+
+  actionlint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint the workflows with the pinned, checksum-verified actionlint
+        run: |
+          set -euo pipefail
+          ACTIONLINT_VERSION=1.7.7
+          ACTIONLINT_SHA256=023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757
+          tmp="$(mktemp -d)"
+          curl -fsSLo "${tmp}/actionlint.tar.gz" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  ${tmp}/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf "${tmp}/actionlint.tar.gz" -C "${tmp}" actionlint
+          "${tmp}/actionlint" -shellcheck= -pyflakes= -color .github/workflows/*.yml
 
   e2e:
     # The browser journey against the offline stack: fake authority, API with the Fake verifier, built SPA.
