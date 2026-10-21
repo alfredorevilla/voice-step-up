@@ -16,7 +16,7 @@ export function readConfig(env: Record<string, string | undefined> = import.meta
   return {
     mode: env.VITE_AUTH_MODE === "entra" ? "entra" : "fake",
     apiBase: env.VITE_API_BASE ?? "http://localhost:5000",
-    authority: env.VITE_AUTHORITY ?? "http://localhost:5001",
+    authority: env.VITE_AUTHORITY ?? "http://localhost:5100",
     clientId: env.VITE_CLIENT_ID ?? "voice-step-up-spa",
     scope: env.VITE_API_SCOPE ?? "access_as_user",
   };

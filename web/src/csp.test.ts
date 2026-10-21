@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildCsp } from "./csp";
 
 describe("buildCsp (TM-016)", () => {
-  const policy = buildCsp({ apiBase: "http://localhost:5000", authority: "http://localhost:5001" });
+  const policy = buildCsp({ apiBase: "http://localhost:5000", authority: "http://localhost:5100" });
   const directive = (name: string) => policy.split("; ").find((part) => part.startsWith(`${name} `));
 
   it("allows scripts only from the page's own origin", () => {
@@ -20,7 +20,7 @@ describe("buildCsp (TM-016)", () => {
   });
 
   it("lets the page talk only to itself, the API and the authority", () => {
-    expect(directive("connect-src")).toBe("connect-src 'self' http://localhost:5000 http://localhost:5001");
+    expect(directive("connect-src")).toBe("connect-src 'self' http://localhost:5000 http://localhost:5100");
   });
 
   it("keeps Entra's origin when the authority is Entra", () => {
