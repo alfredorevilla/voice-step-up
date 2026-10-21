@@ -41,7 +41,7 @@ export default defineConfig({
     {
       command: "dotnet run --no-build --project ../src/StepUp.FakeAuthority",
       url: `${authority}/.well-known/openid-configuration`,
-      env: { ASPNETCORE_URLS: authority, ASPNETCORE_ENVIRONMENT: "Demo" },
+      env: { ASPNETCORE_URLS: authority, ASPNETCORE_ENVIRONMENT: "Demo", Demo__Enabled: "true" },
       reuseExistingServer: false,
       timeout: 120_000,
     },

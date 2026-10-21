@@ -24,7 +24,24 @@ public static class FakeAuthorityHost
     private static readonly string[] Rs256Only = ["RS256"];
     private static readonly string[] PairwiseOnly = ["pairwise"];
 
-    public static void Main(string[] args) => Build(args).Run();
+    /// <summary>At most this many distinct issuers (Host headers) get a signing key; more are refused.</summary>
+    private const int MaxIssuers = 8;
+
+    public static void Main(string[] args)
+    {
+        var app = Build(args);
+
+        // Standalone, the authority mints tokens for any identity: it runs only with Demo:Enabled in Development or Demo (threat model TM-013).
+        // Build stays unguarded so tests can host it in-process.
+        if (!app.Configuration.GetValue<bool>("Demo:Enabled")
+            || (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Demo")))
+        {
+            throw new InvalidOperationException(
+                $"The fake authority is fake and needs Demo:Enabled=true in the Development or Demo environment (environment is '{app.Environment.EnvironmentName}').");
+        }
+
+        app.Run();
+    }
 
     public static WebApplication Build(string[] args)
     {
@@ -45,7 +62,12 @@ public static class FakeAuthorityHost
         FakeTokenMinter MinterFor(HttpRequest r)
         {
             var issuer = $"{publicUrl ?? $"{r.Scheme}://{r.Host}"}/v2.0";
-            return minters.GetOrAdd(issuer, i => new FakeTokenMinter(i, audience, time));
+            if (!minters.TryGetValue(issuer, out var existing) && minters.Count >= MaxIssuers)
+            {
+                throw new BadHttpRequestException("too many issuers");
+            }
+
+            return existing ?? minters.GetOrAdd(issuer, i => new FakeTokenMinter(i, audience, time));
         }
 
         app.Use(async (ctx, next) =>
@@ -96,8 +118,10 @@ public static class FakeAuthorityHost
             }
 
             var redirect = q["redirect_uri"].ToString();
-            if (!Uri.TryCreate(redirect, UriKind.Absolute, out _))
+            if (!Uri.TryCreate(redirect, UriKind.Absolute, out var redirectUri)
+                || !origins.Contains(redirectUri.GetLeftPart(UriPartial.Authority), StringComparer.Ordinal))
             {
+                // The allow-list is the same one CORS uses (FakeAuthority:AllowedOrigins), so a code is never sent to an arbitrary site.
                 return Results.BadRequest(new { error = "invalid_request", error_description = "redirect_uri" });
             }
 

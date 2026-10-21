@@ -13,6 +13,7 @@ services:
       - "127.0.0.1:5100:5100"
     environment:
       ASPNETCORE_ENVIRONMENT: Demo
+      Demo__Enabled: "true"
       # The issuer the browser sees. The API reaches this service as http://authority:5100.
       FakeAuthority__PublicUrl: http://localhost:5100
     healthcheck:

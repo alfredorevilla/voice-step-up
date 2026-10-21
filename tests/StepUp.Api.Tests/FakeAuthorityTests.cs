@@ -157,4 +157,27 @@ public sealed class FakeAuthorityTests : IAsyncLifetime
         Assert.Equal("http://localhost:5100/v2.0", discovery.RootElement.GetProperty("issuer").GetString());
         Assert.StartsWith(pinned.Urls.First(), discovery.RootElement.GetProperty("jwks_uri").GetString(), StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Authorize_RefusesARedirectUriOutsideTheAllowList()
+    {
+        var response = await _http.GetAsync($"/authorize?response_type=code&client_id=spa&redirect_uri={Uri.EscapeDataString("https://evil.example/cb")}&code_challenge=abc&code_challenge_method=S256", Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Host_StopsMintingKeysForNewHostHeaders_PastABound()
+    {
+        var statuses = new List<HttpStatusCode>();
+        for (var i = 0; i < 12; i++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/jwks");
+            request.Headers.Host = $"h{i}.test";
+            statuses.Add((await _http.SendAsync(request, Ct)).StatusCode);
+        }
+
+        Assert.Equal(HttpStatusCode.OK, statuses[0]);
+        Assert.Equal(HttpStatusCode.BadRequest, statuses[^1]);
+    }
 }
