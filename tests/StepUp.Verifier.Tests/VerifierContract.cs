@@ -38,7 +38,7 @@ public abstract class VerifierContract
         Assert.Null(result.Reject);
         Assert.NotNull(result.Embedding);
         Assert.NotEmpty(result.Embedding);
-        Assert.True(PhraseGenerator.Matches(result.Transcript, Phrase));
+        Assert.True(PhraseGenerator.Matches(result.Transcript, Phrase), $"heard '{result.Transcript}'");
     }
 
     [Fact]
