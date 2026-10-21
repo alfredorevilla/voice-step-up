@@ -40,11 +40,35 @@ dotnet test tests/StepUp.Eval.Tests
 | The sample is too small to support the NIST false match rate | High | State it in the report (M6-A4) |
 
 ## Acceptance
-- [ ] M6-A1. `scripts/eval.sh` reproduces the report from a clean checkout (dataset fetched, checksums verified).
-- [ ] M6-A2. The report states FAR and FRR per threshold and per condition, with intervals and the number of trials.
-- [ ] M6-A3. Metric calculations are unit-tested against hand-computed examples.
-- [ ] M6-A4. The report states its limits: read speech, small speaker count, no real-world spoofing coverage, and that the sample is too small to demonstrate the NIST SP 800-63B-4 false match rate of 1 in 10,000.
-- [ ] M6-A5. Default thresholds in config trace to the report.
+- [x] M6-A1. `scripts/eval.sh` reproduces the report from a clean checkout (dataset fetched, checksums verified).
+- [x] M6-A2. The report states FAR and FRR per threshold and per condition, with intervals and the number of trials.
+- [x] M6-A3. Metric calculations are unit-tested against hand-computed examples.
+- [x] M6-A4. The report states its limits: read speech, small speaker count, no real-world spoofing coverage, and that the sample is too small to demonstrate the NIST SP 800-63B-4 false match rate of 1 in 10,000.
+- [x] M6-A5. Default thresholds in config trace to the report.
+
+## Evidence and decisions
+
+Protocol committed first (`f06f5e4`), amended once before any score existed (`de13bf3`, probe pool sized to the utterances a speaker has: 4 of 40 speakers in each set have fewer than 38 utterances of 4 s or more). Results: `docs/eval-report.md`, `docs/eval/`.
+
+| Item | Evidence |
+|---|---|
+| M6-A1 | `scripts/eval.sh fetch` downloaded dev-clean and test-clean into an empty `eval-data/` and checked both MD5s against `eval/librispeech.md5`; `scripts/eval.sh run` produced the report. Recomputing 2 speakers per set without the cache gave bit-identical embeddings (840 values, maximum difference 0). Not repeated from a fresh clone; the manual `eval.yml` workflow does that on a runner. |
+| M6-A2 | Report tables: FAR and FRR per condition at the default and strict thresholds with Wilson and speaker-bootstrap intervals and the trial counts. P3 has no trials: the production gate refused every probe (stated in the report). |
+| M6-A3 | `tests/StepUp.Eval.Tests`: 60 tests, metric values worked out by hand in the test comments. Mutation check: flipping FAR `>=`, FRR `<`, the threshold boundary, the Wilson term and the percentile rank each turns a test red (one survivor, FRR `<=`, led to a new boundary test). |
+| M6-A4 | Report sections "Not measured" and "Limits"; the NIST section says 40 speakers cannot demonstrate 1 in 10,000. |
+| M6-A5 | `StepUp:ThresholdSeed` 0.79 and `StepUp:EnrollmentConsistencyFloor` 0.46 in `StepUpOptions` and `appsettings.json`, from rules R1 and R3 on dev-clean. `PhraseGenerator.MatchThreshold` stays 0.60 (rule R4: 96.0% of correct and 0.0% of wrong phrases accepted on dev-clean). Cohort normalisation not adopted (P0 EER 8.44% to 7.51%, under the 20% bar). |
+
+Findings for the owner (test-clean, primary condition P0, threshold 0.79):
+
+- FAR 2.04% (bootstrap 1.23% to 2.93%), FRR 43.28% (37.84% to 48.51%), EER 10.69%. With a 2 s probe about 4 in 10 genuine attempts fall back to MFA. Full 10 s utterances reach EER 4.59%. A longer challenge phrase would help far more than any threshold; changing the phrase length is a design change (ADR-0002, T3.1) and is not made here.
+- The same threshold gave FAR 0.68% on dev-clean and 2.04% on test-clean: a threshold chosen on 40 speakers does not carry over exactly. The threshold also does not carry over to another probe length (S0: FAR 5.74% at 0.79).
+- The phrase check accepts a phrase with one wrong word 87.00% of the time (test-clean). It stops a replay of a different phrase, not a recording that differs by a word. This weakens the replay argument in ADR-0002 and TM-001 for partially matching audio; it is recorded here, not fixed.
+- Noise: the production gate refuses all 5 dB probes and 11.7% of 10 dB probes; EER at 20 dB is 27.35% and at 10 dB 37.85%.
+- The enrollment consistency floor catches 47.5% of poisoned enrollments (2 segments of one speaker and 1 of another) on test-clean.
+
+Decisions made without a panel (a fork cannot convene one): the threshold, floor, phrase and cohort rules were pre-registered in the protocol and applied mechanically; the probe-pool amendment applies to every speaker alike and was committed before any score existed. Spoofing was not measured (scoped out in the protocol; the Piper voices are not clones of a target).
+
+Out-of-scope fix: two M2 tests (`Assertion_RejectsHs256`, `Assertion_RejectsUnknownKid`) began to fail once the wall clock passed the fake clock's 12:00Z on 2026-10-21, because `CreateToken` stamped `nbf` with the real clock. The test helpers now pin `NotBefore` and `IssuedAt` to the fake clock.
 
 ## Finish
 Use `/goal` (fix all medium and higher or blocking issues found and ensure all plan acceptance criteria items are done) or turn eq 3 (a fix loop capped at 3 turns). Then use `/code-review` (ECC's). `/goal` exists nowhere on this machine as of 2026-10-20 (no command file, skill or plugin entry), so the 3-turn fix loop is the Finish step. It is deliberately not in the Tooling table, so it cannot halt the pre-execution gate.
