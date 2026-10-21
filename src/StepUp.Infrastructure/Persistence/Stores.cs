@@ -7,12 +7,15 @@ namespace StepUp.Infrastructure.Persistence;
 
 internal static class Ms
 {
+    /// <summary>Rows are kept this long past their expiry before a write purges them, so a late read still sees "expired".</summary>
+    public static readonly TimeSpan PurgeMargin = TimeSpan.FromHours(1);
+
     public static long Of(DateTimeOffset t) => t.ToUnixTimeMilliseconds();
 
     public static DateTimeOffset To(long ms) => DateTimeOffset.FromUnixTimeMilliseconds(ms);
 }
 
-public sealed class ChallengeStore(IDbContextFactory<StepUpDbContext> factory) : IChallengeStore
+public sealed class ChallengeStore(IDbContextFactory<StepUpDbContext> factory, TimeProvider time) : IChallengeStore
 {
     public async Task<int> CountOpenAsync(UserKey user, DateTimeOffset now, CancellationToken cancellationToken)
     {
@@ -24,6 +27,10 @@ public sealed class ChallengeStore(IDbContextFactory<StepUpDbContext> factory) :
     public async Task AddAsync(Challenge challenge, CancellationToken cancellationToken)
     {
         await using var db = await factory.CreateDbContextAsync(cancellationToken);
+
+        // Opportunistic purge: expired challenges (and the phrases still on unconsumed ones) do not pile up.
+        var stale = Ms.Of(time.GetUtcNow() - Ms.PurgeMargin);
+        await db.Challenges.Where(c => c.ExpiresAt < stale).ExecuteDeleteAsync(cancellationToken);
         db.Challenges.Add(new ChallengeRow
         {
             Id = challenge.Id,
@@ -302,16 +309,37 @@ public sealed class EnrollmentStore(IDbContextFactory<StepUpDbContext> factory, 
     }
 }
 
-public sealed class UsedAssertionStore(IDbContextFactory<StepUpDbContext> factory) : IUsedAssertionStore
+public sealed class UsedAssertionStore(IDbContextFactory<StepUpDbContext> factory, TimeProvider time) : IUsedAssertionStore
 {
     public async Task<bool> TryUseAsync(string jti, DateTimeOffset expiresAt, CancellationToken cancellationToken)
     {
         await using var db = await factory.CreateDbContextAsync(cancellationToken);
         var expires = Ms.Of(expiresAt);
 
+        // Opportunistic purge: a jti is only needed while its assertion could still be accepted, so keep it past expiry by the margin.
+        var stale = Ms.Of(time.GetUtcNow() - Ms.PurgeMargin);
+        await db.UsedAssertions.Where(u => u.ExpiresAt < stale).ExecuteDeleteAsync(cancellationToken);
+
         // One atomic statement: exactly one caller inserts the jti, a replay inserts nothing and raises no exception.
         var inserted = await db.Database.ExecuteSqlInterpolatedAsync(
             $"INSERT OR IGNORE INTO UsedAssertions (Jti, ExpiresAt) VALUES ({jti}, {expires})", cancellationToken);
         return inserted == 1;
+    }
+}
+
+public sealed class UserDataEraser(IDbContextFactory<StepUpDbContext> factory, TimeProvider time) : IUserDataEraser
+{
+    public async Task EraseAsync(UserKey user, CancellationToken cancellationToken)
+    {
+        await using var db = await factory.CreateDbContextAsync(cancellationToken);
+        await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
+        var now = Ms.Of(time.GetUtcNow());
+        await db.Voiceprints.Where(v => v.UserKey == user.Value).ExecuteDeleteAsync(cancellationToken);
+        await db.Enrollments.Where(e => e.UserKey == user.Value).ExecuteDeleteAsync(cancellationToken);
+        await db.Consents.Where(c => c.UserKey == user.Value && c.WithdrawnAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.WithdrawnAt, now), cancellationToken);
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE Attempts SET UserKey = 'anon-' || lower(hex(randomblob(16))) WHERE UserKey = {user.Value}", cancellationToken);
+        await tx.CommitAsync(cancellationToken);
     }
 }

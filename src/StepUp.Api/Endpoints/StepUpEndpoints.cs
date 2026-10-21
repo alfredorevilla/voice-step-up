@@ -195,13 +195,9 @@ public static class StepUpEndpoints
         return Results.Ok(new { enrolled = true });
     }
 
-    private static async Task<IResult> DeleteVoiceprint(HttpContext http, IVoiceprintStore voiceprints, IConsentStore consents, IEnrollmentStore enrollments, IAttemptLog attempts, CancellationToken ct)
+    private static async Task<IResult> DeleteVoiceprint(HttpContext http, IUserDataEraser eraser, CancellationToken ct)
     {
-        var user = Who(http).User;
-        await voiceprints.DeleteAsync(user, ct);
-        await enrollments.DeleteForUserAsync(user, ct);
-        await consents.WithdrawAsync(user, ct);
-        await attempts.PseudonymiseAsync(user, ct);
+        await eraser.EraseAsync(Who(http).User, ct);
         return Results.NoContent();
     }
 

@@ -16,7 +16,7 @@ public sealed class FileKeyStore : IAssertionKeyProvider
 
     public FileKeyStore(string directory, IDataProtectionProvider provider)
     {
-        Directory.CreateDirectory(directory);
+        PrivateFiles.CreateDirectory(directory);
         var protector = provider.CreateProtector("StepUp.Keys.v1");
 
         var signingPath = Path.Combine(directory, "assertion-signing.key");
@@ -52,10 +52,52 @@ public sealed class FileKeyStore : IAssertionKeyProvider
 
     private static void WriteSecret(string path, byte[] content)
     {
-        File.WriteAllBytes(path, content);
-        if (!OperatingSystem.IsWindows())
+        // Write a private temp file, then move it into place without overwriting: a crash leaves no half-written key
+        // at `path`, and a second process that lost the race gets an IOException instead of replacing the key.
+        var temp = $"{path}.{Guid.NewGuid():N}.tmp";
+        try
         {
-            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            using (var stream = PrivateFiles.CreateNew(temp))
+            {
+                stream.Write(content);
+            }
+
+            File.Move(temp, path);
         }
+        finally
+        {
+            File.Delete(temp);
+        }
+    }
+}
+
+/// <summary>Creates directories and files owner-only from the start, so there is no window with the default umask.</summary>
+public static class PrivateFiles
+{
+    public static void CreateDirectory(string path)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Directory.CreateDirectory(path);
+        }
+        else
+        {
+            Directory.CreateDirectory(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
+
+    public static FileStream CreateNew(string path)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return new FileStream(path, FileMode.CreateNew, FileAccess.Write);
+        }
+
+        return new FileStream(path, new FileStreamOptions
+        {
+            Mode = FileMode.CreateNew,
+            Access = FileAccess.Write,
+            UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
+        });
     }
 }

@@ -26,6 +26,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IThresholdStore, ThresholdStore>();
         services.AddSingleton<IEnrollmentStore, EnrollmentStore>();
         services.AddSingleton<IUsedAssertionStore, UsedAssertionStore>();
+        services.AddSingleton<IUserDataEraser, UserDataEraser>();
         return services;
     }
 }

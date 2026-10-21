@@ -21,6 +21,7 @@ builder.AddStepUpAuth();
 
 var storage = builder.Configuration.GetSection("Storage");
 var keyDirectory = storage["KeyDirectory"] ?? "data/keys";
+StepUp.Infrastructure.Security.PrivateFiles.CreateDirectory(Path.Combine(keyDirectory, "dataprotection"));
 builder.Services.AddDataProtection()
     .SetApplicationName("voice-step-up")
     .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(keyDirectory, "dataprotection")));
@@ -71,7 +72,8 @@ builder.Services.AddRateLimiter(o =>
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     o.OnRejected = async (context, token) =>
     {
-        await Problems.Create(StatusCodes.Status429TooManyRequests, ReasonCode.RateLimited, fallback: true).ExecuteAsync(context.HttpContext);
+        TimeSpan? retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var wait) ? wait : null;
+        await Problems.Create(StatusCodes.Status429TooManyRequests, ReasonCode.RateLimited, fallback: true, retryAfter: retryAfter).ExecuteAsync(context.HttpContext);
     };
 
     // Per user (the stated attacker holds a valid token); the address is only the key for anonymous callers.

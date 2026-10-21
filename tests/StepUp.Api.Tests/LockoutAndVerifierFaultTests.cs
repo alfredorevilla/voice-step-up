@@ -114,8 +114,11 @@ public sealed class VerifierFaultTests
     {
         public string ModelId => "fake-verifier-v1";
 
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
         public async Task<VerifierResult> AnalyzeAsync(ReadOnlyMemory<byte> wav, string expectedPhrase, CancellationToken cancellationToken)
         {
+            Entered.TrySetResult();
             await Task.Delay(Timeout.Infinite, cancellationToken);
             return new VerifierResult(null, null, null);
         }
@@ -169,17 +172,36 @@ public sealed class VerifierFaultTests
     [Fact]
     public async Task Verifier_ConcurrencyLimitReturns429()
     {
-        var (api, client, id, phrase) = await ArrangeAsync(new HangingVerifier(), new() { ["StepUp:VerifierConcurrency"] = "1", ["StepUp:VerifierTimeout"] = "00:00:02" });
+        var hanging = new HangingVerifier();
+        var (api, client, id, phrase) = await ArrangeAsync(hanging, new() { ["StepUp:VerifierConcurrency"] = "1", ["StepUp:VerifierTimeout"] = "00:00:02" });
         using var _a = api;
         using var _c = client;
         var (id2, phrase2) = await Flows.ChallengeAsync(client);
 
         var first = Flows.VerifyAsync(client, id, ApiFactory.Speech(1, phrase));
-        await Task.Delay(300, Ct);
+        await hanging.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5), Ct);
         var second = await Flows.VerifyAsync(client, id2, ApiFactory.Speech(1, phrase2));
 
         Assert.Equal(HttpStatusCode.TooManyRequests, second.StatusCode);
         Assert.Equal("RateLimited", await second.CodeAsync());
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await first).StatusCode);
+    }
+
+    [Fact]
+    public async Task Verify_SecondConcurrentRequestForTheSameUser_IsTurnedAway()
+    {
+        var hanging = new HangingVerifier();
+        var (api, client, id, phrase) = await ArrangeAsync(hanging, new() { ["StepUp:VerifierTimeout"] = "00:00:02" });
+        using var _a = api;
+        using var _c = client;
+        var (id2, phrase2) = await Flows.ChallengeAsync(client);
+
+        var first = Flows.VerifyAsync(client, id, ApiFactory.Speech(1, phrase));
+        await hanging.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5), Ct);
+        var second = await Flows.VerifyAsync(client, id2, ApiFactory.Speech(1, phrase2));
+
+        // Concurrency is 4 by default, so only the per-user guard can have refused this one.
+        Assert.Equal(HttpStatusCode.TooManyRequests, second.StatusCode);
         Assert.Equal(HttpStatusCode.ServiceUnavailable, (await first).StatusCode);
     }
 }

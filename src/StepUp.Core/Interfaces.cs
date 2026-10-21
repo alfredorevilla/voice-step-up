@@ -116,6 +116,12 @@ public interface IUsedAssertionStore
     Task<bool> TryUseAsync(string jti, DateTimeOffset expiresAt, CancellationToken cancellationToken);
 }
 
+public interface IUserDataEraser
+{
+    /// <summary>Deletes the voiceprint and in-progress enrollments, withdraws consent and pseudonymises attempts, all in one transaction.</summary>
+    Task EraseAsync(UserKey user, CancellationToken cancellationToken);
+}
+
 public interface IUserKeyHasher
 {
     UserKey Hash(string tid, string oid);

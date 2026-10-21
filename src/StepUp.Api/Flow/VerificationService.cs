@@ -9,6 +9,25 @@ public sealed record VerifyOutcome(int Status, ReasonCode? Code, bool OfferFallb
 public sealed class VerifierGate(StepUpOptions options)
 {
     public SemaphoreSlim Semaphore { get; } = new(options.VerifierConcurrency);
+
+    private readonly HashSet<string> _busyUsers = [];
+
+    /// <summary>One verification per user at a time, so the lockout check and the attempt write cannot interleave across requests.</summary>
+    public bool TryEnterUser(string user)
+    {
+        lock (_busyUsers)
+        {
+            return _busyUsers.Add(user);
+        }
+    }
+
+    public void ExitUser(string user)
+    {
+        lock (_busyUsers)
+        {
+            _busyUsers.Remove(user);
+        }
+    }
 }
 
 public sealed class VerificationService(
@@ -24,6 +43,24 @@ public sealed class VerificationService(
     TimeProvider time)
 {
     public async Task<VerifyOutcome> VerifyAsync(Caller caller, UserKey user, Guid challengeId, string action, string? payloadHash, ReadOnlyMemory<byte> wav, CancellationToken cancellationToken)
+    {
+        // A second verify for the same user while one is running is turned away like a full verifier gate (429, retry), not queued.
+        if (!gate.TryEnterUser(user.Value))
+        {
+            return new VerifyOutcome(429, ReasonCode.RateLimited, true, null, null, TimeSpan.FromSeconds(1));
+        }
+
+        try
+        {
+            return await VerifyCoreAsync(caller, user, challengeId, action, payloadHash, wav, cancellationToken);
+        }
+        finally
+        {
+            gate.ExitUser(user.Value);
+        }
+    }
+
+    private async Task<VerifyOutcome> VerifyCoreAsync(Caller caller, UserKey user, Guid challengeId, string action, string? payloadHash, ReadOnlyMemory<byte> wav, CancellationToken cancellationToken)
     {
         var voiceprint = await voiceprints.GetAsync(user, cancellationToken);
         if (voiceprint is null)
