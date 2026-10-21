@@ -13,7 +13,8 @@ public sealed record ReportInput(
     IReadOnlyDictionary<string, ConditionSummary> TestSummaries,
     string ProtocolCommit,
     string ModelId,
-    int Resamples);
+    int Resamples,
+    string Reproduction = "");
 
 /// <summary>Writes docs/eval-report.md and the CSV files. Every figure comes from the computed results; nothing is typed in.</summary>
 public static class Report
@@ -85,6 +86,14 @@ public static class Report
         sb.AppendLine($"| Enrollment consistency floor | R3: 1st percentile of the lowest pairwise cosine of genuine enrollments | **{Num(f.ConsistencyFloor, 2)}** | `StepUp:EnrollmentConsistencyFloor` |");
         sb.AppendLine($"| Phrase match threshold | R4 | **{(double.IsNaN(f.PhraseThreshold) ? "none qualifies" : Num(f.PhraseThreshold, 2))}** | `PhraseGenerator.MatchThreshold` |");
         sb.AppendLine($"| Cohort score normalisation | R5: adopt if P0 EER is 20% lower and no degraded EER rises | **{(f.CohortAdopted ? "criterion met" : "not adopted")}** | scores stay raw cosines |");
+        foreach (var c in Design.LongConditions)
+        {
+            sb.AppendLine($"| Threshold for {c} | A2.2: R1 in {c} on dev-clean | {Num(f.ThresholdFor(c), 2)} (strict {Num(f.StrictThresholdFor(c), 2)}) | {(c == "L3E" && f.AdoptLongChallenge ? "`StepUp:ThresholdSeed`" : "reported only")} |");
+        }
+
+        sb.AppendLine($"| Consistency floor for 3.5 s enrollment | A2.2: R3 on the L3E/L4E enrollments | {Num(f.ExtendedConsistencyFloor, 2)} | {(f.AdoptLongChallenge ? "`StepUp:EnrollmentConsistencyFloor`" : "reported only")} |");
+        sb.AppendLine($"| 6-word challenge | A2.3: FRR(L3E) at least 10 points below FRR(P0) on dev-clean | **{(f.AdoptLongChallenge ? "adopted" : "not adopted")}** | `PhraseGenerator.WordsPerPhrase` |");
+        sb.AppendLine($"| Per-word phrase floor | A2.4: smallest w in 0.50 to 0.70 meeting the gate on dev-clean | **{(double.IsNaN(f.PhraseWordFloor) ? "none qualifies" : Num(f.PhraseWordFloor, 2))}** | `StepUp:PhraseMinWordSimilarity` |");
         sb.AppendLine();
         sb.AppendLine($"Rounding the threshold up to two decimals lowers FAR a little: on dev-clean the default threshold gives FAR {Pct(r.DevSummaries["P0"].AtDefault.Far)} in P0 (the target was 1%).");
         sb.AppendLine();
@@ -146,6 +155,8 @@ public static class Report
 
         AppendNist(sb, p0, f);
         AppendPhrase(sb, r);
+        AppendWordRule(sb, r);
+        AppendLongChallenge(sb, r);
         AppendEnrollment(sb, r);
 
         sb.AppendLine("## dev-clean at the frozen values (for reference)");
@@ -179,6 +190,12 @@ public static class Report
         sb.AppendLine("- Dependence of the genuine/impostor trials of one probe on many claimed speakers is not modelled beyond the cluster bootstrap on the claimed speaker.");
         sb.AppendLine("- Amendment 1 (probe pool sized to the utterances a speaker has) was made after a first full run stopped with an error on a speaker with too few long utterances. That run produced no result. A 3-speaker smoke run of the pipeline came earlier; no value was chosen from it or from any test-clean score.");
         sb.AppendLine("- Reproducibility was checked by recomputing the embeddings of 2 speakers per set without the cache: they matched the cached ones exactly.");
+        sb.AppendLine("- Amendment 2 (docs/design/evaluation-protocol.md, committed before any new score) added the conditions L3, L3E, L4, L4E and the per-word phrase gate. The test-clean numbers for P0 to P4 and S0 had been seen under the first protocol version; every Amendment 2 decision uses dev-clean only, and test-clean is scored once per condition at values frozen on dev-clean.");
+        if (r.Reproduction.Length > 0)
+        {
+            sb.AppendLine($"- {r.Reproduction}");
+        }
+
         foreach (var condition in DegradedConditions.Where(c => double.IsNaN(f.RawEer[c])))
         {
             sb.AppendLine($"- {condition} produced no scores on dev-clean (the production gate refused every probe), so rule R5's \"EER not higher in P1 to P4\" had nothing to compare for it. The harness reads such a condition as not worse. The protocol did not say this; if it had a score the 20% bar for cohort normalisation could have failed on it. The condition is also unmeasured in the results.");
@@ -252,14 +269,14 @@ public static class Report
 
     private static void AppendResultTable(StringBuilder sb, IReadOnlyDictionary<string, ConditionSummary> summaries, double threshold, Func<ConditionSummary, OperatingPoint> pick)
     {
-        sb.AppendLine($"Threshold {Num(threshold, 2)}:");
+        sb.AppendLine($"Threshold {Num(threshold, 2)} for P0 to P4 and S0; each of L3, L3E, L4, L4E uses its own (column Threshold):");
         sb.AppendLine();
-        sb.AppendLine("| Condition | FAR | FAR Wilson | FAR bootstrap | FRR | FRR Wilson | FRR bootstrap |");
-        sb.AppendLine("|---|---|---|---|---|---|---|");
+        sb.AppendLine("| Condition | Threshold | FAR | FAR Wilson | FAR bootstrap | FRR | FRR Wilson | FRR bootstrap |");
+        sb.AppendLine("|---|---|---|---|---|---|---|---|");
         foreach (var c in Design.Conditions)
         {
             var p = pick(summaries[c]);
-            sb.AppendLine($"| {c} | {Pct(p.Far)} ({p.FalseAccepts}) | {Ci(p.FarWilson)} | {Ci(p.FarBootstrap)} | {Pct(p.Frr)} ({p.FalseRejects}) | {Ci(p.FrrWilson)} | {Ci(p.FrrBootstrap)} |");
+            sb.AppendLine($"| {c} | {Num(p.Threshold, 2)} | {Pct(p.Far)} ({p.FalseAccepts}) | {Ci(p.FarWilson)} | {Ci(p.FarBootstrap)} | {Pct(p.Frr)} ({p.FalseRejects}) | {Ci(p.FrrWilson)} | {Ci(p.FrrBootstrap)} |");
         }
     }
 
@@ -307,6 +324,80 @@ public static class Report
             sb.AppendLine($"The check separates different phrases (wrong phrases accepted: {Pct(nearTest.WrongAccepted)}) but not near-identical ones: a phrase with one wrong word is accepted {Pct(nearTest.NearMissAccepted)} of the time on test-clean. It stops a replay of a whole different phrase, not a recording that differs by a word. The near-miss rate is shown for information and is not gated; the design response (longer phrases, a stricter word-level rule) is a follow-up, not part of M6.");
         }
 
+        sb.AppendLine();
+    }
+
+    private static void AppendWordRule(StringBuilder sb, ReportInput r)
+    {
+        var f = r.Frozen;
+        sb.AppendLine("## Per-word phrase rule (Amendment 2, A2.4)");
+        sb.AppendLine();
+        sb.AppendLine("The whole-phrase similarity must reach 0.60 (unchanged) and, with the rule on, every expected word must reach the floor `w` (`PhraseGenerator.WordSimilarities`: letters aligned by Levenshtein distance, an edit belongs to the expected word holding the letter). Same cases as R4. Gate on dev-clean: correct phrases accepted at least 95%, one-wrong-word phrases at most 5%, wrong whole phrases exactly 0%; the smallest qualifying `w` is chosen.");
+        sb.AppendLine();
+        sb.AppendLine("| Rule | dev-clean correct | dev-clean one wrong word | dev-clean wrong phrase | Gate |");
+        sb.AppendLine("|---|---|---|---|---|");
+        var off = PhraseCheck.Rates(r.Dev.Phrase.Scores, PhraseGenerator.MatchThreshold);
+        sb.AppendLine($"| whole phrase only (off) | {Pct(off.CorrectAccepted)} | {Pct(off.NearMissAccepted)} | {Pct(off.WrongAccepted)} | not applicable |");
+        foreach (var w in PhraseCheck.WordGrid)
+        {
+            var rates = PhraseCheck.WordRuleRates(r.Dev.Phrase.Scores, w);
+            var passes = rates.CorrectAccepted >= PhraseCheck.WordRuleMinCorrectAccepted
+                && rates.NearMissAccepted <= PhraseCheck.WordRuleMaxNearMissAccepted
+                && rates.WrongAccepted <= PhraseCheck.WordRuleMaxWrongAccepted;
+            sb.AppendLine($"| every word >= {Num(w, 2)} | {Pct(rates.CorrectAccepted)} | {Pct(rates.NearMissAccepted)} | {Pct(rates.WrongAccepted)} | {(passes ? "met" : "not met")} |");
+        }
+
+        sb.AppendLine();
+        if (double.IsNaN(f.PhraseWordFloor))
+        {
+            sb.AppendLine("**No floor met the gate on dev-clean**, so the per-word rule is not turned on: the whole-phrase rule at 0.60 stays alone, and a phrase with one wrong word is still accepted at the rate shown in the first row. `StepUp:PhraseMinWordSimilarity` stays 0 (off).");
+        }
+        else
+        {
+            var test = PhraseCheck.WordRuleRates(r.Test.Phrase.Scores, f.PhraseWordFloor);
+            var testOff = PhraseCheck.Rates(r.Test.Phrase.Scores, PhraseGenerator.MatchThreshold);
+            sb.AppendLine($"**w = {Num(f.PhraseWordFloor, 2)} met the gate on dev-clean** and is the default of `StepUp:PhraseMinWordSimilarity`. Scored once on test-clean: correct phrases accepted {Pct(test.CorrectAccepted)} (rule off {Pct(testOff.CorrectAccepted)}), one-wrong-word phrases {Pct(test.NearMissAccepted)} (rule off {Pct(testOff.NearMissAccepted)}), wrong whole phrases {Pct(test.WrongAccepted)}.");
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("Limits: the cases are LibriSpeech sentences of 3 to 6 words, not challenge-list words spoken by users, so the cost of the rule for real challenge speech (Whisper splitting and merging isolated nouns) is not measured here; the earlier synthetic-voice spike (ADR-0002) used exact whole-phrase matching only. A miss sends the user to the fallback. The rule narrows splicing (an attacker must now match every word), it does not close it.");
+        sb.AppendLine();
+    }
+
+    private static void AppendLongChallenge(StringBuilder sb, ReportInput r)
+    {
+        var f = r.Frozen;
+        sb.AppendLine("## Longer challenge (Amendment 2, A2.1 to A2.3)");
+        sb.AppendLine();
+        sb.AppendLine($"A 4-word challenge is a probe of about 2 s (P0). Amendment 2 adds probes of 3 s and 4 s, each with the 2.5 s enrollment of P0 or a 3.5 s enrollment, and gives every condition its own R1 threshold on dev-clean. Words to seconds is an assumption: the phrase cases of this run are read at {Num(r.Dev.Phrase.WordsPerSecond, 2)} words per second (dev-clean) and {Num(r.Test.Phrase.WordsPerSecond, 2)} (test-clean) in running audiobook speech, so 6 words would be about {Num(6 / r.Dev.Phrase.WordsPerSecond, 1)} s and 4 words about {Num(4 / r.Dev.Phrase.WordsPerSecond, 1)} s at that rate; spoken challenge words (isolated nouns) are not measured.");
+        sb.AppendLine();
+        foreach (var (name, summaries) in new[] { ("dev-clean (chooses)", r.DevSummaries), ("test-clean (reports, scored once)", r.TestSummaries) })
+        {
+            sb.AppendLine($"{name}, each condition at its own R1 threshold:");
+            sb.AppendLine();
+            sb.AppendLine("| Condition | Threshold | FAR | FRR | FRR bootstrap 95% | EER | Probes not acquired |");
+            sb.AppendLine("|---|---|---|---|---|---|---|");
+            foreach (var c in new[] { "P0", "L3", "L3E", "L4", "L4E" })
+            {
+                var s = summaries[c];
+                sb.AppendLine($"| {c} | {Num(s.AtDefault.Threshold, 2)} | {Pct(s.AtDefault.Far)} | {Pct(s.AtDefault.Frr)} | {Ci(s.AtDefault.FrrBootstrap)} | {Pct(s.Eer)} | {s.ProbesNotAcquired} of {s.ProbesAttempted} |");
+            }
+
+            sb.AppendLine();
+        }
+
+        var frrP0 = f.FrrAtOwnThreshold.GetValueOrDefault("P0", double.NaN);
+        var frrL3E = f.FrrAtOwnThreshold.GetValueOrDefault("L3E", double.NaN);
+        var frrL4E = f.FrrAtOwnThreshold.GetValueOrDefault("L4E", double.NaN);
+        sb.AppendLine($"Rule R6 (dev-clean): FRR(P0) {Pct(frrP0)}, FRR(L3E) {Pct(frrL3E)}, a gain of {Num((frrP0 - frrL3E) * 100, 1)} percentage points against the required 10.");
+        sb.AppendLine();
+        sb.AppendLine(f.AdoptLongChallenge
+            ? "**R6 is met.** The product moves to 6-word challenges and enrollment phrases: `PhraseGenerator.WordsPerPhrase = 6`, `StepUp:ThresholdSeed` is the L3E threshold and `StepUp:EnrollmentConsistencyFloor` is the 3.5 s floor above. These values belong to a probe of about 3 s and to the speaker model id; they do not carry over to another length."
+            : "**R6 is not met.** The product keeps 4-word challenges, threshold 0.79 and floor 0.46.");
+        sb.AppendLine();
+        sb.AppendLine($"Eight words (L4E, about 4 s) are not adopted by this amendment whatever the result. On dev-clean FRR(L4E) is {Pct(frrL4E)}{(frrL3E - frrL4E >= 0.10 ? ", at least 10 points better than L3E, so it is a candidate for a later decision" : ", not 10 points better than L3E")}.");
+        sb.AppendLine();
+        sb.AppendLine("Comparing L3 with L3E separates probe length from enrollment length; the data cannot say more than that. Genuine probes still come from the same sessions as the enrollment audio, so every FRR here is optimistic.");
         sb.AppendLine();
     }
 

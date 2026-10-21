@@ -3,7 +3,7 @@ namespace StepUp.Eval;
 /// <summary>Embeddings take minutes to compute, so a run keeps them under the git-ignored data folder. The key names the model and the design version.</summary>
 public sealed class Cache(string directory)
 {
-    public const int Version = 2;
+    public const int Version = 3;
 
     public string PathFor(string set, string speaker) => Path.Combine(directory, $"{set}-{speaker}.emb");
 
@@ -28,6 +28,7 @@ public sealed class Cache(string directory)
         var probeCount = r.ReadInt32();
         var primary = ReadGrid(r);
         var secondary = ReadGrid(r);
+        var longGrid = ReadGrid(r);
         var probes = new Dictionary<string, float[]?[]>();
         var conditions = r.ReadInt32();
         for (var c = 0; c < conditions; c++)
@@ -36,7 +37,7 @@ public sealed class Cache(string directory)
             probes[name] = [.. Enumerable.Range(0, r.ReadInt32()).Select(_ => ReadEmbedding(r))];
         }
 
-        embeddings = new SpeakerEmbeddings { Index = index, Id = id, Primary = primary, Secondary = secondary, Probes = probes, ProbeCount = probeCount, SegmentRedraws = redraws };
+        embeddings = new SpeakerEmbeddings { Index = index, Id = id, Primary = primary, Secondary = secondary, Extended = longGrid, Probes = probes, ProbeCount = probeCount, SegmentRedraws = redraws };
         return true;
     }
 
@@ -51,6 +52,7 @@ public sealed class Cache(string directory)
         w.Write(e.ProbeCount);
         WriteGrid(w, e.Primary);
         WriteGrid(w, e.Secondary);
+        WriteGrid(w, e.Extended);
         w.Write(e.Probes.Count);
         foreach (var (name, list) in e.Probes)
         {

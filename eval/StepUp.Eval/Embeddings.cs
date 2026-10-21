@@ -16,6 +16,9 @@ public sealed class SpeakerEmbeddings
     /// <summary>Full-utterance enrollments: [repetition][segment].</summary>
     public required float[]?[][] Secondary { get; init; }
 
+    /// <summary>Amendment 2: 3.5 s-segment enrollments for L3E and L4E: [repetition][segment].</summary>
+    public float[]?[][] Extended { get; init; } = [];
+
     /// <summary>Per condition, the embedding of each of the speaker's probes.</summary>
     public required IReadOnlyDictionary<string, float[]?[]> Probes { get; init; }
 
@@ -36,6 +39,7 @@ public sealed class SpeakerRunner(IVerifier verifier, LibriSpeech corpus, string
         var jobs = new List<(float[] Samples, Action<float[]?> Store)>();
         var primary = NewGrid(Design.Repetitions, Design.SegmentsPerEnrollment);
         var secondary = NewGrid(Design.Repetitions, Design.SegmentsPerEnrollment);
+        var longGrid = NewGrid(Design.Repetitions, Design.SegmentsPerEnrollment);
         var probes = Design.Conditions.ToDictionary(c => c, _ => new float[]?[probePool.Count]);
 
         for (var rep = 0; rep < Design.Repetitions; rep++)
@@ -54,6 +58,13 @@ public sealed class SpeakerRunner(IVerifier verifier, LibriSpeech corpus, string
 
                 var full = Audio.FirstSeconds(utterance, Design.FullMaxSeconds);
                 jobs.Add((full, e => secondary[r][kk] = e));
+
+                var (longSegment, longTries) = DrawSegment(utterance, Design.LongEnrollmentSeconds, Seeds.Rng(Design.MasterSeed, "seg", speaker, "EL", rep, k));
+                redraws += longTries - 1;
+                if (longSegment is not null)
+                {
+                    jobs.Add((longSegment, e => longGrid[r][kk] = e));
+                }
             }
         }
 
@@ -78,6 +89,20 @@ public sealed class SpeakerRunner(IVerifier verifier, LibriSpeech corpus, string
             }
 
             jobs.Add((Audio.FirstSeconds(utterance, Design.FullMaxSeconds), e => probes["S0"][n] = e));
+
+            // Amendment 2: the same probe feeds the short- and the long-enrollment variant of each length.
+            var (probe3, tries3) = DrawSegment(utterance, Design.Probe3Seconds, Seeds.Rng(Design.MasterSeed, "seg", speaker, "Q3", i));
+            var (probe4, tries4) = DrawSegment(utterance, Design.Probe4Seconds, Seeds.Rng(Design.MasterSeed, "seg", speaker, "Q4", i));
+            redraws += (tries3 - 1) + (tries4 - 1);
+            if (probe3 is not null)
+            {
+                jobs.Add((probe3, e => { probes["L3"][n] = e; probes["L3E"][n] = e; }));
+            }
+
+            if (probe4 is not null)
+            {
+                jobs.Add((probe4, e => { probes["L4"][n] = e; probes["L4E"][n] = e; }));
+            }
         }
 
         await Parallel.ForEachAsync(
@@ -95,6 +120,7 @@ public sealed class SpeakerRunner(IVerifier verifier, LibriSpeech corpus, string
             Id = speaker,
             Primary = primary,
             Secondary = secondary,
+            Extended = longGrid,
             Probes = probes,
             ProbeCount = probePool.Count,
             SegmentRedraws = redraws,

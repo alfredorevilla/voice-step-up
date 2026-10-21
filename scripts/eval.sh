@@ -4,7 +4,8 @@
 #   fetch  download LibriSpeech dev-clean and test-clean, check the MD5, extract (git-ignored folder)
 #   run    fetch models, build the tool, run the protocol, write docs/eval-report.md and docs/eval/*.csv
 # Needs: dotnet, ffmpeg, curl, md5sum, tar. Audio is never committed.
-# Environment: EVAL_DATA (default <repo>/eval-data), EVAL_SET to limit to one set (dev-clean or test-clean).
+# Environment: EVAL_DATA (default <repo>/eval-data), EVAL_SET to limit to one set (dev-clean or test-clean),
+#              EVAL_THREADS to cap the parallel workers (default: processors minus 2).
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -53,7 +54,8 @@ run() {
   elif [ "$first" = "$latest" ]; then protocol="\`$first\`"
   else protocol="\`$first\` (amended in \`$latest\`)"; fi
   dotnet run -c Release --project "$root/eval/StepUp.Eval" -- \
-    --data "$data" --models "$root/models" --out "$root/docs" --protocol-commit "$protocol" "${sets[@]/#/--set=}"
+    --data "$data" --models "$root/models" --out "$root/docs" --protocol-commit "$protocol" \
+    ${EVAL_THREADS:+--threads "$EVAL_THREADS"} "${sets[@]/#/--set=}"
 }
 
 case "${1:-all}" in

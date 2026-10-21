@@ -13,7 +13,7 @@ public static class Program
         var options = Options.Parse(args);
         if (options is null)
         {
-            Console.Error.WriteLine("usage: StepUp.Eval --data <dir> --models <dir> --out <docs dir> [--set=dev-clean --set=test-clean] [--limit-speakers N] [--bootstrap B] [--no-cache] [--protocol-commit HASH]");
+            Console.Error.WriteLine("usage: StepUp.Eval --data <dir> --models <dir> --out <docs dir> [--set=dev-clean --set=test-clean] [--limit-speakers N] [--bootstrap B] [--no-cache] [--threads N] [--protocol-commit HASH]");
             return 2;
         }
 
@@ -44,7 +44,10 @@ public static class Program
         Console.Error.WriteLine("Summarising");
         var devSummaries = Summaries(dev, frozen, options.Bootstrap);
         var testSummaries = Summaries(test, frozen, options.Bootstrap);
+        var earlierSummary = Path.Combine(options.Out, "eval", "summary.csv");
         var input = new ReportInput(dev, test, frozen, devSummaries, testSummaries, options.ProtocolCommit, verifier.ModelId, options.Bootstrap);
+        input = input with { Reproduction = Reproduction.Compare(File.Exists(earlierSummary) ? File.ReadAllText(earlierSummary) : null, devSummaries, testSummaries) };
+        Console.Error.WriteLine(input.Reproduction);
 
         File.WriteAllText(Path.Combine(options.Out, "eval-report.md"), Report.Build(input));
         Report.WriteCsv(Path.Combine(options.Out, "eval"), input);
@@ -80,6 +83,7 @@ public static class Program
 
         Console.Error.WriteLine($"[{set}] phrase check");
         var phrase = await PhraseCheck.RunAsync(verifier, corpus, set, options.Parallelism, CancellationToken.None).ConfigureAwait(false);
+        PhraseCheck.WriteCases(Path.Combine(options.Data, $"phrase-cases-{set}.tsv"), phrase);
         Console.Error.WriteLine($"[{set}] scoring");
         var built = SetResult.Build(set, embeddings, phrase);
         foreach (var c in Design.Conditions)
@@ -118,6 +122,7 @@ public static class Program
             var limit = int.MaxValue;
             var bootstrap = Design.BootstrapResamples;
             var noCache = false;
+            var threads = Math.Max(1, Environment.ProcessorCount - 2);
             var commit = "unknown";
             for (var i = 0; i < args.Length; i++)
             {
@@ -131,6 +136,7 @@ public static class Program
                     case "--bootstrap": bootstrap = int.Parse(args[++i], System.Globalization.CultureInfo.InvariantCulture); break;
                     case "--protocol-commit": commit = args[++i]; break;
                     case "--no-cache": noCache = true; break;
+                    case "--threads": threads = int.Parse(args[++i], System.Globalization.CultureInfo.InvariantCulture); break;
                     default:
                         if (a.StartsWith("--set=", StringComparison.Ordinal))
                         {
@@ -156,7 +162,7 @@ public static class Program
             }
 
             sets.Sort(StringComparer.Ordinal);
-            return new Options(data, models, output, sets, limit, bootstrap, noCache, commit, Math.Max(1, Environment.ProcessorCount - 2));
+            return new Options(data, models, output, sets, limit, bootstrap, noCache, commit, Math.Max(1, threads));
         }
     }
 }

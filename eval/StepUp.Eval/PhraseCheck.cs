@@ -2,11 +2,23 @@ using StepUp.Core;
 
 namespace StepUp.Eval;
 
-public sealed record PhraseScores(string Id, double Correct, double Wrong, double NearMiss);
+/// <summary>
+/// One phrase case: the three letter similarities and, for the per-word rule, the transcript and the three expected texts
+/// (LibriSpeech text and ASR output; no audio).
+/// </summary>
+public sealed record PhraseScores(
+    string Id,
+    double Correct,
+    double Wrong,
+    double NearMiss,
+    string Transcript = "",
+    string Own = "",
+    string WrongText = "",
+    string NearMissText = "");
 
 public sealed record PhraseRates(int N, double CorrectAccepted, double WrongAccepted, double NearMissAccepted);
 
-public sealed record PhraseRun(IReadOnlyList<PhraseScores> Scores, int Candidates, int Selected, int RejectedByGate);
+public sealed record PhraseRun(IReadOnlyList<PhraseScores> Scores, int Candidates, int Selected, int RejectedByGate, double WordsPerSecond = double.NaN);
 
 /// <summary>
 /// Protocol rule R4: how well the production letter-similarity phrase check tolerates real read speech.
@@ -24,6 +36,13 @@ public static class PhraseCheck
 
     public static readonly double[] Grid = [.. Enumerable.Range(0, 10).Select(n => 0.50 + (0.05 * n))];
 
+    /// <summary>Amendment 2 (A2.4): the per-word floors tried, 0.50 to 0.70.</summary>
+    public static readonly double[] WordGrid = [0.50, 0.55, 0.60, 0.65, 0.70];
+
+    public const double WordRuleMinCorrectAccepted = 0.95;
+    public const double WordRuleMaxNearMissAccepted = 0.05;
+    public const double WordRuleMaxWrongAccepted = 0.0;
+
     public static PhraseRates Rates(IReadOnlyList<PhraseScores> scores, double threshold)
     {
         if (scores.Count == 0)
@@ -33,6 +52,47 @@ public static class PhraseCheck
 
         double Share(Func<PhraseScores, double> pick) => (double)scores.Count(s => pick(s) >= threshold) / scores.Count;
         return new PhraseRates(scores.Count, Share(s => s.Correct), Share(s => s.Wrong), Share(s => s.NearMiss));
+    }
+
+    /// <summary>Acceptance rates of the production per-word rule (<see cref="PhraseGenerator.Matches(string?, string, double)"/>) at floor <paramref name="wordFloor"/>.</summary>
+    public static PhraseRates WordRuleRates(IReadOnlyList<PhraseScores> scores, double wordFloor)
+    {
+        if (scores.Count == 0)
+        {
+            return new PhraseRates(0, double.NaN, double.NaN, double.NaN);
+        }
+
+        double Share(Func<PhraseScores, string> text) =>
+            (double)scores.Count(s => PhraseGenerator.Matches(s.Transcript, text(s), wordFloor)) / scores.Count;
+        return new PhraseRates(scores.Count, Share(s => s.Own), Share(s => s.WrongText), Share(s => s.NearMissText));
+    }
+
+    /// <summary>
+    /// A2.4: the smallest floor of <see cref="WordGrid"/> where correct phrases are accepted at least 95%, one-wrong-word phrases at most 5%
+    /// and wrong whole phrases exactly 0%. NaN when none qualifies (the whole-phrase rule then stays alone).
+    /// </summary>
+    public static double ChooseWordFloor(IReadOnlyList<PhraseScores> scores)
+    {
+        foreach (var w in WordGrid)
+        {
+            var rates = WordRuleRates(scores, w);
+            if (rates.N > 0
+                && rates.CorrectAccepted >= WordRuleMinCorrectAccepted
+                && rates.NearMissAccepted <= WordRuleMaxNearMissAccepted
+                && rates.WrongAccepted <= WordRuleMaxWrongAccepted)
+            {
+                return w;
+            }
+        }
+
+        return double.NaN;
+    }
+
+    /// <summary>One line per case, text only: id, transcript, the expected texts and the three similarities. For scoring the grid without audio.</summary>
+    public static void WriteCases(string path, PhraseRun run)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllLines(path, run.Scores.Select(s => string.Join('\t', s.Id, s.Transcript, s.Own, s.WrongText, s.NearMissText, s.Correct.ToString("F4", System.Globalization.CultureInfo.InvariantCulture), s.Wrong.ToString("F4", System.Globalization.CultureInfo.InvariantCulture), s.NearMiss.ToString("F4", System.Globalization.CultureInfo.InvariantCulture))));
     }
 
     /// <summary>Rule R4. Keep the current value if it meets both limits, otherwise the grid value with the most correct phrases among those with at most 1% wrong (ties to the higher). NaN when none qualifies.</summary>
@@ -108,6 +168,8 @@ public static class PhraseCheck
             }).ConfigureAwait(false);
 
         var scores = new List<PhraseScores>();
+        var wordCount = 0;
+        var spokenSeconds = 0.0;
         for (var i = 0; i < chosen.Count; i++)
         {
             if (transcripts[i] is not { } transcript)
@@ -119,13 +181,20 @@ public static class PhraseCheck
             var others = Enumerable.Range(0, chosen.Count).Where(j => j != i && chosen[j].Utterance.Text != chosen[i].Utterance.Text).ToArray();
             var wrongText = chosen[others[rng.Next(others.Length)]].Utterance.Text;
             var own = chosen[i].Utterance.Text;
+            var nearMiss = NearMiss(own, wrongText, rng);
+            wordCount += own.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+            spokenSeconds += (double)chosen[i].Samples.Length / Audio.SampleRate;
             scores.Add(new PhraseScores(
                 chosen[i].Utterance.Id,
                 PhraseGenerator.Similarity(transcript, own),
                 PhraseGenerator.Similarity(transcript, wrongText),
-                PhraseGenerator.Similarity(transcript, NearMiss(own, wrongText, rng))));
+                PhraseGenerator.Similarity(transcript, nearMiss),
+                transcript,
+                own,
+                wrongText,
+                nearMiss));
         }
 
-        return new PhraseRun(scores, candidates.Length, chosen.Count, chosen.Count - scores.Count);
+        return new PhraseRun(scores, candidates.Length, chosen.Count, chosen.Count - scores.Count, spokenSeconds > 0 ? wordCount / spokenSeconds : double.NaN);
     }
 }

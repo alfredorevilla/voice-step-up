@@ -48,6 +48,8 @@ public sealed class SetResult
 
     public required IReadOnlyList<double> GenuineMinimumPairwise { get; init; }
 
+    public IReadOnlyList<double> GenuineMinimumPairwiseExtended { get; init; } = [];
+
     public required IReadOnlyList<double> PoisonedMinimumPairwise { get; init; }
 
     public int SegmentRedraws => Speakers.Sum(s => s.SegmentRedraws);
@@ -59,7 +61,7 @@ public sealed class SetResult
         foreach (var condition in Design.Conditions)
         {
             trials[condition] = Scoring.Trials(speakers, condition);
-            if (condition != "S0")
+            if (Design.CohortConditions.Contains(condition))
             {
                 cohort[condition] = Scoring.Trials(speakers, condition, cohortNormalise: true);
             }
@@ -73,6 +75,7 @@ public sealed class SetResult
             CohortTrials = cohort,
             Phrase = phrase,
             GenuineMinimumPairwise = Scoring.MinimumPairwise(speakers),
+            GenuineMinimumPairwiseExtended = Scoring.MinimumPairwiseExtended(speakers),
             PoisonedMinimumPairwise = Scoring.PoisonedMinimumPairwise(speakers),
         };
     }
@@ -96,14 +99,37 @@ public static class Analysis
             norm[condition] = Metrics.Eer(gn, inn).Eer;
         }
 
+        var own = new Dictionary<string, double>();
+        var ownStrict = new Dictionary<string, double>();
+        var frr = new Dictionary<string, double>();
+        foreach (var condition in Design.LongConditions)
+        {
+            var (g, i) = SetResult.Split(dev.Trials[condition]);
+            own[condition] = Freeze.DefaultThreshold(i, Freeze.DefaultFar);
+            ownStrict[condition] = Freeze.DefaultThreshold(i, Freeze.StrictFar);
+            frr[condition] = g.Count == 0 ? double.NaN : Metrics.Frr(g, own[condition]);
+        }
+
+        var defaultThreshold = Freeze.DefaultThreshold(impostor, Freeze.DefaultFar);
+        var (g0, _) = SetResult.Split(dev.Trials["P0"]);
+        frr["P0"] = g0.Count == 0 ? double.NaN : Metrics.Frr(g0, defaultThreshold);
+
         return new Frozen(
-            Freeze.DefaultThreshold(impostor, Freeze.DefaultFar),
+            defaultThreshold,
             Freeze.DefaultThreshold(impostor, Freeze.StrictFar),
             Freeze.ConsistencyFloor(dev.GenuineMinimumPairwise),
             PhraseCheck.ChooseThreshold(dev.Phrase.Scores, PhraseGenerator.MatchThreshold),
             Freeze.CohortAdopted(raw, norm),
             raw,
-            norm);
+            norm)
+        {
+            ConditionThresholds = own,
+            ConditionStrictThresholds = ownStrict,
+            ExtendedConsistencyFloor = dev.GenuineMinimumPairwiseExtended.Count == 0 ? double.NaN : Freeze.ConsistencyFloor(dev.GenuineMinimumPairwiseExtended),
+            PhraseWordFloor = PhraseCheck.ChooseWordFloor(dev.Phrase.Scores),
+            FrrAtOwnThreshold = frr,
+            AdoptLongChallenge = Freeze.AdoptLongChallenge(frr["P0"], frr["L3E"]),
+        };
     }
 
     public static ConditionSummary Summarise(SetResult set, string condition, Frozen frozen, int resamples)
@@ -134,8 +160,8 @@ public static class Analysis
             enrollmentsMissing,
             eer,
             eerCi,
-            Point(genuine, impostor, bySpeaker, frozen.Threshold, resamples),
-            Point(genuine, impostor, bySpeaker, frozen.StrictThreshold, resamples),
+            Point(genuine, impostor, bySpeaker, frozen.ThresholdFor(condition), resamples),
+            Point(genuine, impostor, bySpeaker, frozen.StrictThresholdFor(condition), resamples),
             Det(genuine, impostor));
     }
 

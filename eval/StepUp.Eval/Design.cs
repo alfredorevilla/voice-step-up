@@ -15,7 +15,14 @@ public static class Design
     public const int ImpostorProbesPerSpeaker = 3;
     public const int MaxRedraws = 10;
     public const double EnrollmentSeconds = 2.5;
+
+    /// <summary>Amendment 2: enrollment segments of the longer-challenge conditions L3E and L4E.</summary>
+    public const double LongEnrollmentSeconds = 3.5;
     public const double ProbeSeconds = 2.0;
+
+    /// <summary>Amendment 2: probe lengths of L3, L3E and L4, L4E.</summary>
+    public const double Probe3Seconds = 3.0;
+    public const double Probe4Seconds = 4.0;
     public const double FullMaxSeconds = 10.0;
     public const double MinUtteranceSeconds = 4.0;
     public const int BootstrapResamples = 2000;
@@ -23,7 +30,25 @@ public static class Design
     public static readonly double[] SnrDb = [20, 10, 5];
 
     /// <summary>Primary condition first. P0 to P4 share the short-segment enrollment, S0 has its own.</summary>
-    public static readonly string[] Conditions = ["P0", "P1", "P2", "P3", "P4", "S0"];
+    public static readonly string[] Conditions = ["P0", "P1", "P2", "P3", "P4", "S0", "L3", "L3E", "L4", "L4E"];
+
+    /// <summary>Amendment 2 conditions: each gets its own R1 threshold on dev-clean.</summary>
+    public static readonly string[] LongConditions = ["L3", "L3E", "L4", "L4E"];
+
+    /// <summary>R5 (cohort normalisation) stays on the original P conditions.</summary>
+    public static readonly string[] CohortConditions = ["P0", "P1", "P2", "P3", "P4"];
+
+    public static bool IsLong(string condition) => LongConditions.Contains(condition);
+
+    /// <summary>L3E and L4E enroll with 3.5 s segments; L3 and L4 use the 2.5 s enrollment of P0.</summary>
+    public static bool UsesLongEnrollment(string condition) => condition is "L3E" or "L4E";
+
+    public static double ProbeSecondsFor(string condition) => condition switch
+    {
+        "L3" or "L3E" => Probe3Seconds,
+        "L4" or "L4E" => Probe4Seconds,
+        _ => ProbeSeconds,
+    };
 
     public static readonly IReadOnlyDictionary<string, string> Descriptions = new Dictionary<string, string>
     {
@@ -33,6 +58,10 @@ public static class Design
         ["P3"] = "P0 probe + white noise, SNR 5 dB",
         ["P4"] = "P0 probe band-limited to 4 kHz (8 kHz sampling)",
         ["S0"] = "clean, 3 full utterances (<= 10 s), full-utterance probe (best case)",
+        ["L3"] = "clean, 3 x 2.5 s enrollment, 3 s probe",
+        ["L3E"] = "clean, 3 x 3.5 s enrollment, 3 s probe (candidate for a 6-word challenge)",
+        ["L4"] = "clean, 3 x 2.5 s enrollment, 4 s probe",
+        ["L4E"] = "clean, 3 x 3.5 s enrollment, 4 s probe",
     };
 
     /// <summary><paramref name="count"/> distinct indexes out of <paramref name="of"/>, in the order drawn.</summary>

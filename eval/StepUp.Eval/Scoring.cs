@@ -12,7 +12,7 @@ public static class Scoring
         segments.Any(s => s is null) ? null : Cosine.NormalizedMean([.. segments.OfType<float[]>()]);
 
     public static float[]?[] Templates(SpeakerEmbeddings speaker, string condition) =>
-        [.. (condition == "S0" ? speaker.Secondary : speaker.Primary).Select(Template)];
+        [.. (condition == "S0" ? speaker.Secondary : Design.UsesLongEnrollment(condition) ? speaker.Extended : speaker.Primary).Select(Template)];
 
     /// <summary>
     /// All genuine and impostor trials of one condition. With <paramref name="cohortNormalise"/> each score becomes
@@ -73,6 +73,13 @@ public static class Scoring
     public static IReadOnlyList<double> MinimumPairwise(IReadOnlyList<SpeakerEmbeddings> speakers) =>
     [
         .. speakers.SelectMany(s => s.Primary)
+            .Where(segments => segments.All(e => e is not null))
+            .Select(segments => MinimumPairwise([.. segments.OfType<float[]>()])),
+    ];
+
+    public static IReadOnlyList<double> MinimumPairwiseExtended(IReadOnlyList<SpeakerEmbeddings> speakers) =>
+    [
+        .. speakers.SelectMany(s => s.Extended)
             .Where(segments => segments.All(e => e is not null))
             .Select(segments => MinimumPairwise([.. segments.OfType<float[]>()])),
     ];
