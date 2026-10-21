@@ -12,7 +12,7 @@ public class EnrollmentWordlistTests
     }
 
     [Fact]
-    public void EnrollmentPhrases_AreFourEnrollmentWordsAndNeverChallengeWords()
+    public void EnrollmentPhrases_AreEnrollmentWordsAndNeverChallengeWords()
     {
         for (var i = 0; i < 200; i++)
         {

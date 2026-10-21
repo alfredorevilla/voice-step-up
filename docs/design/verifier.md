@@ -38,7 +38,7 @@ A quality reject does not consume the challenge, is logged as `Rejected`, and do
 
 ## 4. Enrollment
 
-The Api combines samples, not the verifier: each embedding is L2-normalised, the mean is taken, and the mean is normalised again. Samples are rejected if any pairwise cosine is below the consistency floor (0.46, the 1st percentile of genuine enrollments on dev-clean; see `docs/eval-report.md`). Enrollment phrases come from the separate enrollment list and are ASR-checked with the same phrase rule as step-up.
+The Api combines samples, not the verifier: each embedding is L2-normalised, the mean is taken, and the mean is normalised again. Samples are rejected if any pairwise cosine is below the consistency floor (0.43, the 1st percentile of genuine 3.5 s enrollments on dev-clean for the 6-word phrases; see `docs/eval-report.md`, rules R3 and R6). Enrollment phrases come from the separate enrollment list and are ASR-checked with the same phrase rule as step-up.
 
 ## 5. Phrase check (ADR-0002)
 
