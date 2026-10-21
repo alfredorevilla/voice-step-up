@@ -6,7 +6,31 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0.401 AS build
 WORKDIR /src
 COPY global.json Directory.Build.props Directory.Packages.props ./
 COPY src/ src/
-RUN dotnet publish src/StepUp.Api/StepUp.Api.csproj -c Release -o /out
+RUN dotnet publish src/StepUp.Api/StepUp.Api.csproj -c Release -o /out \
+ && dotnet publish src/StepUp.FakeAuthority/StepUp.FakeAuthority.csproj -c Release -o /out-authority
+
+# Offline demo targets (compose default services): no models, no tenant.
+# api-demo is the API with the Fake verifier; the fake sign-in needs Demo:Enabled and the Demo environment.
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS api-demo
+WORKDIR /app
+COPY --from=build /out ./
+RUN mkdir -p /data && chown -R app:app /data
+ENV ASPNETCORE_HTTP_PORTS=5000 \
+    Storage__DatabasePath=/data/stepup.db \
+    Storage__KeyDirectory=/data/keys \
+    Verifier__Mode=Fake
+VOLUME /data
+USER app
+EXPOSE 5000
+ENTRYPOINT ["dotnet", "StepUp.Api.dll"]
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS authority
+WORKDIR /app
+COPY --from=build /out-authority ./
+ENV ASPNETCORE_HTTP_PORTS=5100
+USER app
+EXPOSE 5100
+ENTRYPOINT ["dotnet", "StepUp.FakeAuthority.dll"]
 
 FROM debian:trixie-slim AS models
 RUN apt-get update \
