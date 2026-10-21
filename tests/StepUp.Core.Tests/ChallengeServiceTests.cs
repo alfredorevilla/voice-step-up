@@ -14,12 +14,12 @@ public class ChallengeServiceTests
     private ChallengeService Create(ChallengeOptions? options = null) => new(_store, options ?? new ChallengeOptions(), _time);
 
     [Fact]
-    public async Task Challenge_HasFourWordPhrase()
+    public async Task Challenge_HasTheConfiguredNumberOfWords()
     {
         var result = await Create().IssueAsync(Alice, "payout", TestContext.Current.CancellationToken);
 
         Assert.NotNull(result.Challenge);
-        Assert.Equal(4, result.Challenge.Phrase!.Split(' ').Length);
+        Assert.Equal(PhraseGenerator.WordsPerPhrase, result.Challenge.Phrase!.Split(' ').Length);
     }
 
     [Fact]

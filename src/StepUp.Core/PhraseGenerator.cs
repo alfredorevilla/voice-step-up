@@ -4,12 +4,13 @@ namespace StepUp.Core;
 
 public static partial class PhraseGenerator
 {
-    public const int WordsPerPhrase = 4;
+    /// <summary>A 6-word challenge is a probe of about 3 s (docs/eval-report.md, rule R6, condition L3E).</summary>
+    public const int WordsPerPhrase = 6;
 
-    /// <summary>Four challenge words drawn with a CSPRNG, lowercase, space separated.</summary>
+    /// <summary>Six challenge words drawn with a CSPRNG, lowercase, space separated.</summary>
     public static string Create() => Draw(Wordlist.Words);
 
-    /// <summary>Four words from the separate enrollment list, so enrollment audio never contains a challenge word.</summary>
+    /// <summary>Six words from the separate enrollment list, so enrollment audio never contains a challenge word.</summary>
     public static string CreateEnrollment() => Draw(EnrollmentWordlist.Words);
 
     private static string Draw(string[] words)

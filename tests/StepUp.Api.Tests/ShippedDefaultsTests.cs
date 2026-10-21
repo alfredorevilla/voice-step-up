@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using StepUp.Api.Flow;
+using StepUp.Core;
 
 namespace StepUp.Api.Tests;
 
@@ -10,8 +11,9 @@ namespace StepUp.Api.Tests;
 /// </summary>
 public class ShippedDefaultsTests
 {
-    // The evaluation condition the product's probe length matches (docs/design/evaluation-protocol.md, conditions table).
-    private const string ShippedCondition = "P0";
+    // The evaluation condition the product's challenge matches: 6 words, a probe of about 3 s with a 3.5 s enrollment
+    // (docs/design/evaluation-protocol.md, Amendment 2, conditions table; adopted by rule R6 in docs/eval-report.md).
+    private const string ShippedCondition = "L3E";
 
     private static string RepoFile(params string[] parts)
     {
@@ -38,8 +40,22 @@ public class ShippedDefaultsTests
     {
         var options = new StepUpOptions();
 
-        Assert.Equal(0.79, options.ThresholdSeed);
-        Assert.Equal(0.46, options.EnrollmentConsistencyFloor);
+        Assert.Equal(0.80, options.ThresholdSeed);
+        Assert.Equal(0.43, options.EnrollmentConsistencyFloor);
+    }
+
+    [Fact]
+    public void Challenge_and_enrollment_phrases_have_the_six_words_the_evaluation_adopted()
+    {
+        Assert.Equal(6, PhraseGenerator.WordsPerPhrase);
+        Assert.Equal(6, PhraseGenerator.Create().Split(' ').Length);
+        Assert.Equal(6, PhraseGenerator.CreateEnrollment().Split(' ').Length);
+    }
+
+    [Fact]
+    public void The_per_word_phrase_rule_stays_off_because_no_floor_met_its_gate()
+    {
+        Assert.Equal(0, new StepUpOptions().PhraseMinWordSimilarity);
     }
 
     [Fact]

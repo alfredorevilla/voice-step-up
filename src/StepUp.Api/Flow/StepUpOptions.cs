@@ -17,14 +17,14 @@ public sealed class StepUpOptions
 
     public TimeSpan EnrollmentTtl { get; set; } = TimeSpan.FromMinutes(10);
 
-    /// <summary>Lowest pairwise cosine between enrollment samples. The 1st percentile of genuine enrollments on dev-clean (docs/eval-report.md, rule R3).</summary>
-    public double EnrollmentConsistencyFloor { get; set; } = 0.46;
+    /// <summary>Lowest pairwise cosine between enrollment samples. The 1st percentile of genuine 3.5 s enrollments on dev-clean (docs/eval-report.md, rules R3 and R6).</summary>
+    public double EnrollmentConsistencyFloor { get; set; } = 0.43;
 
     /// <summary>Lowest threshold an analyst may set.</summary>
     public double ThresholdFloor { get; set; } = 0.3;
 
-    /// <summary>The FAR 1% point of the 2 s probe on dev-clean, rounded up (docs/eval-report.md, rule R1). Tied to the speaker model id and to a probe of about 2 s.</summary>
-    public double ThresholdSeed { get; set; } = 0.79;
+    /// <summary>The FAR 1% point of the 3 s probe (6-word challenge, 3.5 s enrollment) on dev-clean, rounded up (docs/eval-report.md, rules R1 and R6). Tied to the speaker model id and to a probe of about 3 s.</summary>
+    public double ThresholdSeed { get; set; } = 0.80;
 
     /// <summary>
     /// Every expected word of the challenge must reach this letter similarity (0 = off, the whole-phrase rule alone).
