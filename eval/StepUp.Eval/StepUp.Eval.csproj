@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>StepUp.Eval</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\StepUp.Core\StepUp.Core.csproj" />
+    <ProjectReference Include="..\..\src\StepUp.Verifier.Sherpa\StepUp.Verifier.Sherpa.csproj" />
+  </ItemGroup>
+
+</Project>

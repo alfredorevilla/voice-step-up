@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\eval\StepUp.Eval\StepUp.Eval.csproj" />
+    <ProjectReference Include="..\..\src\StepUp.Verifier.Sherpa\StepUp.Verifier.Sherpa.csproj" />
+  </ItemGroup>
+
+</Project>
