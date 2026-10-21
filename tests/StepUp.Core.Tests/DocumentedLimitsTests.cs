@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace StepUp.Core.Tests;
 
 /// <summary>
@@ -48,7 +50,8 @@ public sealed class DocumentedLimitsTests
             // "no anti-spoofing" and "not liveness" are the honest statements; a bare claim would be the overclaim.
             foreach (var claim in new[] { "provides liveness", "is live", "anti-spoofing protection", "replay-proof", "deepfake-resistant" })
             {
-                Assert.DoesNotContain(claim, text, StringComparison.OrdinalIgnoreCase);
+                // Whole words only, so "this live demo" does not trip "is live".
+                Assert.DoesNotMatch($@"(?i)\b{Regex.Escape(claim)}\b", text);
             }
         }
     }

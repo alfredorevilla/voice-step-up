@@ -59,7 +59,10 @@ public class AssertionTests
         var parts = token.Split('.');
         var tampered = $"{parts[0]}.{parts[1][..^2]}AA.{parts[2]}";
 
-        Assert.False((await service.ValidateAndConsumeAsync(tampered, _binding, Ct)).Ok);
+        var result = await service.ValidateAndConsumeAsync(tampered, _binding, Ct);
+
+        Assert.False(result.Ok);
+        Assert.Equal("invalid token", result.Failure);
     }
 
     [Fact]
@@ -68,8 +71,10 @@ public class AssertionTests
         var (service, token) = IssueToken();
 
         _time.Advance(_options.Lifetime + TimeSpan.FromSeconds(1));
+        var result = await service.ValidateAndConsumeAsync(token, _binding, Ct);
 
-        Assert.False((await service.ValidateAndConsumeAsync(token, _binding, Ct)).Ok);
+        Assert.False(result.Ok);
+        Assert.Equal("invalid token", result.Failure);
     }
 
     [Fact]
@@ -77,8 +82,11 @@ public class AssertionTests
     {
         var (service, token) = IssueToken();
 
-        Assert.False((await service.ValidateAndConsumeAsync(token, _binding with { Oid = "oid-2" }, Ct)).Ok);
-        Assert.False((await service.ValidateAndConsumeAsync(token, _binding with { Tid = "tid-2" }, Ct)).Ok);
+        var otherUser = await service.ValidateAndConsumeAsync(token, _binding with { Oid = "oid-2" }, Ct);
+        var otherTenant = await service.ValidateAndConsumeAsync(token, _binding with { Tid = "tid-2" }, Ct);
+
+        Assert.Equal("wrong user", otherUser.Failure);
+        Assert.Equal("wrong user", otherTenant.Failure);
     }
 
     [Fact]
@@ -89,6 +97,7 @@ public class AssertionTests
         var result = await service.ValidateAndConsumeAsync(token, _binding with { Action = "delete-account" }, Ct);
 
         Assert.False(result.Ok);
+        Assert.Equal("wrong action", result.Failure);
     }
 
     [Fact]
@@ -100,6 +109,7 @@ public class AssertionTests
         var changed = await service.ValidateAndConsumeAsync(token, bound with { PayloadHash = StepUpAssertionService.PayloadHash("9000", "mallory") }, Ct);
 
         Assert.False(changed.Ok);
+        Assert.Equal("payload changed", changed.Failure);
     }
 
     [Fact]
@@ -112,6 +122,8 @@ public class AssertionTests
 
         Assert.True(first.Ok);
         Assert.False(second.Ok);
+        Assert.Equal("replayed", second.Failure);
+        Assert.Equal(ReasonCode.AssertionReplayed, second.Code);
     }
 
     [Fact]
@@ -120,7 +132,10 @@ public class AssertionTests
         var header = Base64UrlEncoder.Encode("""{"alg":"none","typ":"stepup+jwt"}""");
         var payload = Base64UrlEncoder.Encode($$"""{"iss":"{{_options.Issuer}}","aud":"{{_options.Audience}}","sub":"oid-1","tid":"tid-1","act":"payout","jti":"x","exp":{{_time.GetUtcNow().AddMinutes(5).ToUnixTimeSeconds()}}}""");
 
-        Assert.False((await Service.ValidateAndConsumeAsync($"{header}.{payload}.", _binding, Ct)).Ok);
+        var result = await Service.ValidateAndConsumeAsync($"{header}.{payload}.", _binding, Ct);
+
+        Assert.False(result.Ok);
+        Assert.Equal("invalid token", result.Failure);
     }
 
     private sealed class Keys(SecurityKey signing, params SecurityKey[] validation) : IAssertionKeyProvider
