@@ -100,7 +100,7 @@ Every item below must be checked. The text of each item lives in its milestone p
 - [x] M4-A1, M4-A2, M4-A3, M4-A4, M4-A5
 - [ ] M5-A1, M5-A2, M5-A3, M5-A4, M5-A5
 - [x] M6-A1, M6-A2, M6-A3, M6-A4, M6-A5
-- [x] M7-A1, M7-A2, M7-A3, M7-A4
+- [ ] M7-A1, M7-A2, M7-A3, M7-A4
 - [ ] M8-A1, M8-A2, M8-A3, M8-A4, M8-A5, M8-A6
 - [ ] Project: all nine milestones are complete.
 - [ ] Project: every validation command in the plans passes.

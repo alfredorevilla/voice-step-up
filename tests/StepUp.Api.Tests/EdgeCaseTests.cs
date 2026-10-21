@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using StepUp.Core;
 using StepUp.Infrastructure.Verification;
 
 namespace StepUp.Api.Tests;
@@ -31,8 +32,8 @@ public sealed class EdgeCaseTests : IDisposable
         using var client = await EnrolledAlice();
         var (id, phrase) = await Flows.ChallengeAsync(client);
 
-        // Six bad recordings in a row: more than the five failures that trigger the delay.
-        for (var i = 0; i < 6; i++)
+        // One more bad recording than the failures that trigger the delay.
+        for (var i = 0; i < new LockoutOptions().DelayAfterFailures + 1; i++)
         {
             var rejected = await Flows.VerifyAsync(client, id, ApiFactory.Speech(1, phrase, quality));
             Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);

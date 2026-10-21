@@ -83,7 +83,7 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - run: dotnet build src/StepUp.FakeAuthority src/StepUp.Api
+      - run: dotnet build
       - run: npm ci
         working-directory: web
       - run: npx playwright install --with-deps chromium
