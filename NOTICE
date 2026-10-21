@@ -27,3 +27,5 @@ LibriSpeech corpus (https://www.openslr.org/12/)
   Creative Commons Attribution 4.0 International (OpenSLR resource 12). V. Panayotov, G. Chen, D. Povey, S. Khudanpur,
   "LibriSpeech: an ASR corpus based on public domain audio books", ICASSP 2015. The dev-clean and test-clean sets are
   used to measure false-accept and false-reject rates. docs/eval-report.md reports derived numbers only.
+
+Web app (npm packages, restored by npm ci and not committed): React and React DOM (MIT License, Copyright (c) Meta Platforms, Inc. and affiliates) and @azure/msal-browser (MIT License, Copyright (c) Microsoft Corporation).
