@@ -78,10 +78,10 @@ scripts/probe-tenant.sh   # after P1 to P3 and P6
 | No subscription, or no right to register apps, in the work tenant | Medium | P2 and P4; the probe lists what is visible |
 
 ## Acceptance
-- [ ] M0-A1. `dotnet build` and `dotnet test` pass locally with the SDK pinned to 10.0.401.
-- [ ] M0-A2. The CI workflow passes actionlint and runs green on the feature branch.
-- [ ] M0-A3. `probe-tenant.sh` ran read-only and its result is recorded; every unmet prerequisite is listed, and the installed Bicep binary matches the published v0.48.1 SHA-256.
-- [ ] M0-A4. No tenant id, domain or secret appears in tracked files (`git grep` check).
+- [x] M0-A1. `dotnet build` and `dotnet test` pass locally with the SDK pinned to 10.0.401.
+- [ ] M0-A2. The CI workflow passes actionlint and runs green on the feature branch. (actionlint passes; green run pending a push, not pre-approved)
+- [x] M0-A3. `probe-tenant.sh` ran read-only and its result is recorded; every unmet prerequisite is listed, and the installed Bicep binary matches the published v0.48.1 SHA-256.
+- [x] M0-A4. No tenant id, domain or secret appears in tracked files (`git grep` check).
 
 ## Finish
 Use `/goal` (fix all medium and higher or blocking issues found and ensure all plan acceptance criteria items are done) or turn eq 3 (a fix loop capped at 3 turns). Then use `/code-review` (ECC's). `/goal` exists nowhere on this machine as of 2026-10-20 (no command file, skill or plugin entry), so the 3-turn fix loop is the Finish step. It is deliberately not in the Tooling table, so it cannot halt the pre-execution gate.

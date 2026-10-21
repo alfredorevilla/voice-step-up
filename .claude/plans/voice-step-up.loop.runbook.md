@@ -31,8 +31,8 @@ The loop ends when any one holds:
 ## Autonomy terms
 
 - Commits: allowed on `feat/voice-step-up`, one concern per commit.
-- Push, PR, issue, comment, message: NOT pre-approved. Record as pending. `origin` is `alfredorevilla/voice-step-up` and the active `gh` account is `alfredo-compulabsperu`; nothing is pushed until the user decides.
-- Azure: every `az` call passes `--subscription 00000000-0000-0000-0000-000000000000`; assert tenant `00000000-0000-0000-0000-000000000000` before any change. Changes only in `rg-voice-step-up`.
+- Push, PR, issue, comment, message: NOT pre-approved. Record as pending. `origin` is `alfredorevilla/voice-step-up` and the active `gh` account is the other GitHub account; nothing is pushed until the user decides.
+- Azure: every `az` call passes `--subscription "$VOICE_STEPUP_SUBSCRIPTION"`; assert tenant `$VOICE_STEPUP_TENANT` (set in gitignored `.env.local`) before any change. Changes only in `rg-voice-step-up`.
 - Never read or list `~/.config/voice-step-up/`. Get a TOTP code with `scripts/voice-totp.sh`.
 - Do not create `.env.local` before M0 adds `.gitignore`.
 
