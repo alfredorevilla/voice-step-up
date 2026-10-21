@@ -54,9 +54,9 @@ Protocol committed first (`f06f5e4`), amended once before any score existed (`de
 |---|---|
 | M6-A1 | `scripts/eval.sh fetch` downloaded dev-clean and test-clean into an empty `eval-data/` and checked both MD5s against `eval/librispeech.md5`; `scripts/eval.sh run` produced the report. Recomputing 2 speakers per set without the cache gave bit-identical embeddings (840 values, maximum difference 0). Not repeated from a fresh clone; the manual `eval.yml` workflow does that on a runner. |
 | M6-A2 | Report tables: FAR and FRR per condition at the default and strict thresholds with Wilson and speaker-bootstrap intervals and the trial counts. P3 has no trials: the production gate refused every probe (stated in the report). |
-| M6-A3 | `tests/StepUp.Eval.Tests`: 60 tests, metric values worked out by hand in the test comments. Mutation check: flipping FAR `>=`, FRR `<`, the threshold boundary, the Wilson term and the percentile rank each turns a test red (one survivor, FRR `<=`, led to a new boundary test). |
+| M6-A3 | `tests/StepUp.Eval.Tests`: 91 tests, metric values worked out by hand in the test comments. Mutation check: flipping FAR `>=`, FRR `<`, the threshold boundary, the Wilson term and the percentile rank each turns a test red (one survivor, FRR `<=`, led to a new boundary test). |
 | M6-A4 | Report sections "Not measured" and "Limits"; the NIST section says 40 speakers cannot demonstrate 1 in 10,000. |
-| M6-A5 | `StepUp:ThresholdSeed` 0.79 and `StepUp:EnrollmentConsistencyFloor` 0.46 in `StepUpOptions` and `appsettings.json`, from rules R1 and R3 on dev-clean. `PhraseGenerator.MatchThreshold` stays 0.60 (rule R4: 96.0% of correct and 0.0% of wrong phrases accepted on dev-clean). Cohort normalisation not adopted (P0 EER 8.44% to 7.51%, under the 20% bar). |
+| M6-A5 | `StepUp:ThresholdSeed` 0.80 and `StepUp:EnrollmentConsistencyFloor` 0.43 in `StepUpOptions` and `appsettings.json`, `PhraseGenerator.WordsPerPhrase` 6, from rules R1, R3 and R6 on dev-clean (condition L3E, Amendment 2); `ShippedDefaultsTests` pins code, `appsettings.json` and `docs/eval/summary.csv` together. They were 0.79, 0.46 and 4 words from the first report (condition P0). `PhraseGenerator.MatchThreshold` stays 0.60 (rule R4: 96.0% of correct and 0.0% of wrong phrases accepted on dev-clean). Cohort normalisation not adopted (P0 EER 8.44% to 7.51%, under the 20% bar). |
 
 Findings for the owner (test-clean, primary condition P0, threshold 0.79):
 
@@ -72,3 +72,13 @@ Out-of-scope fix: two M2 tests (`Assertion_RejectsHs256`, `Assertion_RejectsUnkn
 
 ## Finish
 Use `/goal` (fix all medium and higher or blocking issues found and ensure all plan acceptance criteria items are done) or turn eq 3 (a fix loop capped at 3 turns). Then use `/code-review` (ECC's). `/goal` exists nowhere on this machine as of 2026-10-20 (no command file, skill or plugin entry), so the 3-turn fix loop is the Finish step. It is deliberately not in the Tooling table, so it cannot halt the pre-execution gate.
+
+## Amendment 2 evidence and decisions (2026-10-21)
+
+Protocol: `docs/design/evaluation-protocol.md`, Amendment 2, committed (`632cb23`) before any new score; harness `6103f84`; results `docs/eval-report.md`, `docs/eval/`.
+
+- Rule R6 (dev-clean) met: FRR(P0) 43.24% against FRR(L3E) 23.44%, a gain of 19.8 points against the required 10. The product moves to 6-word challenges and enrollment phrases, threshold 0.80, floor 0.43. On test-clean, scored once at the frozen values: L3E FAR 2.18%, FRR 23.82% (bootstrap 95% 19.53% to 28.34%), EER 7.67%. Eight words (L4E) not adopted: FRR 18.06% on dev-clean is not 10 points better than L3E.
+- Per-word phrase rule: no floor from 0.50 to 0.70 met the gate on dev-clean; `StepUp:PhraseMinWordSimilarity` stays 0 (off), the whole-phrase rule at 0.60 stays alone. A phrase with one wrong word is still accepted 85.02% (dev-clean) and 87.00% (test-clean) of the time.
+- Reproduction: P0 to P4 and S0 rows of `docs/eval/summary.csv` are byte-identical to the first report. The run printed 12 of 144 differences, all P3 (no trials; "n/a" vs "NaN" in the check, not in the data); fixed in `Reproduction.Compare` with a test (`8e6a93e`). The evaluation was not run again.
+- Decided by a four-person panel (speaker-verification, architecture, security and product views) and then mechanically by the pre-registered rules; phrase length moved only after the longer-probe re-run met R6.
+- Not measured: spoken challenge words (the seconds per word is an assumption, 1.89 words per second on dev-clean in running speech), splicing, TTS, and the poisoned-enrollment rate of the 0.43 floor.
