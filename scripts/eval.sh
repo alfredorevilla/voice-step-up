@@ -45,8 +45,10 @@ fetch() {
 
 run() {
   "$root/scripts/fetch-models.sh"
+  local protocol
+  protocol="$(git -C "$root" log -1 --format=%h -- docs/design/evaluation-protocol.md 2>/dev/null || echo unknown)"
   dotnet run -c Release --project "$root/eval/StepUp.Eval" -- \
-    --data "$data" --models "$root/models" --out "$root/docs" "${sets[@]/#/--set=}"
+    --data "$data" --models "$root/models" --out "$root/docs" --protocol-commit "$protocol" "${sets[@]/#/--set=}"
 }
 
 case "${1:-all}" in

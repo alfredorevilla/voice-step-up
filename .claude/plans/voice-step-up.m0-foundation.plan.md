@@ -41,6 +41,7 @@ Covers the whole chain of plans (the other plans do not repeat it). Availability
 | `az` >= 2.73.0 (Windows install via WSL interop, 2.80.0 seen) with `az bicep` >= 0.36.1 (0.39.26 seen; pinned to v0.48.1 by P6) | CLI | T0.5, M5 | `az version` and `az bicep version`, then `az account show --query tenantId -o tsv \| tr -d '\r'` equals `$VOICE_STEPUP_TENANT` |
 | `actionlint` 1.7.7 (not installed; downloaded and checksum-verified by the `authoring-github-workflows` snippet into a temp dir) | CLI | T0.4, T8.4 | `curl -fsI https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz` succeeds; the snippet's `sha256sum -c` is the integrity proof |
 | `curl`, `sha256sum` | CLI | T0.4, T0.5, T3.6, T6.1 | `command -v curl sha256sum` |
+| `ffmpeg` | CLI | T6.1 | `command -v ffmpeg` (decodes LibriSpeech FLAC for the evaluation only) |
 | `@playwright/test` 1.64.1 (npm devDependency) | CLI | T7.2 | `npx playwright --version` after T4.1 creates `web/package.json` |
 
 ## Summary

@@ -1,0 +1,28 @@
+name: eval
+
+# Manual run of the M6 evaluation (docs/design/evaluation-protocol.md). Downloads about 700 MB of LibriSpeech and the models.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Run the protocol
+        run: scripts/eval.sh all
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: |
+            docs/eval-report.md
+            docs/eval/
