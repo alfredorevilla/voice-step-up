@@ -8,6 +8,7 @@
   <ItemGroup>
     <ProjectReference Include="..\StepUp.Core\StepUp.Core.csproj" />
     <ProjectReference Include="..\StepUp.Infrastructure\StepUp.Infrastructure.csproj" />
+    <ProjectReference Include="..\StepUp.Verifier.Sherpa\StepUp.Verifier.Sherpa.csproj" />
   </ItemGroup>
 
 </Project>

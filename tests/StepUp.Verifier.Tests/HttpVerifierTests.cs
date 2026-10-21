@@ -1,0 +1,173 @@
+using System.Net;
+using Microsoft.AspNetCore.Http;
+using StepUp.Core;
+using StepUp.Infrastructure.Verification;
+
+namespace StepUp.Verifier.Tests;
+
+/// <summary>The HttpVerifier through the shared contract, against a stub verifier service on loopback.</summary>
+public class HttpVerifierContractTests : VerifierContract, IAsyncLifetime
+{
+    private StubVerifierService stub = null!;
+    private readonly List<HttpClient> clients = [];
+
+    public async ValueTask InitializeAsync() => stub = await StubVerifierService.StartAsync();
+
+    public async ValueTask DisposeAsync()
+    {
+        foreach (var client in clients)
+        {
+            client.Dispose();
+        }
+
+        await stub.DisposeAsync();
+        GC.SuppressFinalize(this);
+    }
+
+    protected override IVerifier Create()
+    {
+        var client = new HttpClient { BaseAddress = stub.Address };
+        clients.Add(client);
+        return new HttpVerifier(client, new HttpVerifierOptions("fake-verifier-v1"));
+    }
+
+    protected override byte[] Speech(int speaker, string phrase) => FakeAudio.Create((byte)speaker, phrase);
+
+    protected override byte[] MutedAudio() => FakeAudio.Create(1, Phrase, FakeQuality.Muted);
+
+    protected override byte[] TooShortAudio() => FakeAudio.Create(1, Phrase, FakeQuality.TooShort);
+}
+
+public sealed class HttpVerifierBehaviourTests : IAsyncLifetime
+{
+    private const string Phrase = "apple anchor arrow autumn";
+    private static readonly byte[] Wav = FakeAudio.Create(1, Phrase);
+
+    private StubVerifierService stub = null!;
+    private HttpClient client = null!;
+
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    public async ValueTask InitializeAsync()
+    {
+        stub = await StubVerifierService.StartAsync(requireKey: true);
+        client = new HttpClient { BaseAddress = stub.Address };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        client.Dispose();
+        await stub.DisposeAsync();
+        GC.SuppressFinalize(this);
+    }
+
+    private HttpVerifier With(string modelId = "fake-verifier-v1", string? key = StubVerifierService.Key) =>
+        new(client, new HttpVerifierOptions(modelId, key));
+
+    [Fact]
+    public async Task Analyze_SendsTheSharedKey()
+    {
+        var result = await With().AnalyzeAsync(Wav, Phrase, Ct);
+
+        Assert.Null(result.Reject);
+        Assert.Equal(StubVerifierService.Key, stub.LastKeyHeader);
+    }
+
+    [Fact]
+    public async Task Analyze_WithoutTheKey_FailsClosedWithAnException()
+    {
+        await Assert.ThrowsAsync<HttpRequestException>(() => With(key: null).AnalyzeAsync(Wav, Phrase, Ct));
+    }
+
+    [Fact]
+    public async Task Analyze_WithAWrongKey_FailsClosedWithAnException()
+    {
+        await Assert.ThrowsAsync<HttpRequestException>(() => With(key: "nope").AnalyzeAsync(Wav, Phrase, Ct));
+    }
+
+    [Fact]
+    public async Task Analyze_WhenTheServiceRunsAnotherModel_Throws()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() => With(modelId: "some-other-model").AnalyzeAsync(Wav, Phrase, Ct));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    [InlineData(HttpStatusCode.BadGateway)]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    public async Task Analyze_OnAServerError_Throws(HttpStatusCode status)
+    {
+        stub.Override = _ => Results.StatusCode((int)status);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => With().AnalyzeAsync(Wav, Phrase, Ct));
+    }
+
+    [Fact]
+    public async Task Analyze_WhenTheAnswerClaimsAPass_ButHasNoEmbedding_Throws()
+    {
+        stub.Override = _ => Results.Json(new AnalyzeResponse("fake-verifier-v1", null, null, "apple anchor arrow autumn"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => With().AnalyzeAsync(Wav, Phrase, Ct));
+    }
+
+    [Fact]
+    public async Task Analyze_WhenTheAnswerHasANonFiniteEmbedding_Throws()
+    {
+        stub.Override = _ => Results.Content("""{"modelId":"fake-verifier-v1","reject":null,"embedding":[1.0,1e999],"transcript":"x"}""", "application/json");
+
+        await Assert.ThrowsAnyAsync<Exception>(() => With().AnalyzeAsync(Wav, Phrase, Ct));
+    }
+
+    [Theory]
+    [InlineData("PhraseMismatch")]
+    [InlineData("BelowThreshold")]
+    [InlineData("NoVoiceprint")]
+    [InlineData("nonsense")]
+    public async Task Analyze_RejectsOnlyCarryQualityReasonCodes(string reject)
+    {
+        stub.Override = _ => Results.Json(new AnalyzeResponse("fake-verifier-v1", reject, null, null));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => With().AnalyzeAsync(Wav, Phrase, Ct));
+    }
+
+    [Theory]
+    [InlineData("Muted", ReasonCode.Muted)]
+    [InlineData("TooShort", ReasonCode.TooShort)]
+    [InlineData("Noisy", ReasonCode.Noisy)]
+    public async Task Analyze_MapsQualityRejects(string reject, ReasonCode expected)
+    {
+        stub.Override = _ => Results.Json(new AnalyzeResponse("fake-verifier-v1", reject, null, null));
+
+        var result = await With().AnalyzeAsync(Wav, Phrase, Ct);
+
+        Assert.Equal(expected, result.Reject);
+        Assert.Null(result.Embedding);
+    }
+
+    [Theory]
+    [InlineData("Apple Anchor")]
+    [InlineData("apple\r\nX-Injected: 1")]
+    [InlineData("apple  anchor")]
+    [InlineData("")]
+    [InlineData("apple1")]
+    public async Task Analyze_RefusesAPhraseThatIsNotPlainWords_BeforeSendingAnything(string phrase)
+    {
+        await Assert.ThrowsAsync<ArgumentException>(() => With().AnalyzeAsync(Wav, phrase, Ct));
+
+        Assert.Equal(0, stub.Calls);
+    }
+
+    [Fact]
+    public async Task Analyze_WhenTheServiceIsSlow_HonoursTheCallersTimeout()
+    {
+        stub.Override = http =>
+        {
+            Task.Delay(TimeSpan.FromSeconds(10), http.RequestAborted).GetAwaiter().GetResult();
+            return Results.Ok();
+        };
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        cts.CancelAfter(TimeSpan.FromMilliseconds(200));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => With().AnalyzeAsync(Wav, Phrase, cts.Token));
+    }
+}
