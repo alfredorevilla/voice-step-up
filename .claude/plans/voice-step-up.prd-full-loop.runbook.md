@@ -45,13 +45,14 @@
 - [x] 12. `/push-pr`: runbook ticks for steps 9 to 11
 - [x] 13. `/learn-eval`: 2 reusable patterns found, both Save; not written, because both go to `~/.claude` (outside this worktree) and need the user's approval. See Final report.
 - [x] 14. Final report written below, then `/push-pr`
-- [ ] 15. `/ship --rebase`
+- [x] 15. `/ship --rebase`: GitHub refused the rebase merge; PR #1 merged with a merge commit instead (eb61143), on the user's choice
 
 ## Failures
 
 | Step | Error | Resolution |
 |---|---|---|
 | 5 (`/goal` review-fix) | `GOAL_NOT_ACHIEVED` at round 2 of 5: blocked on approval to edit test code for two nitpicks. 33 files changed, nothing committed. | HALT before step 6, as the command requires. Waiting on the user. |
+| 15 (`/ship --rebase`) | `GraphQL: This branch can't be rebased` (the branch holds a merge commit from the M7 merge). | Asked the user; merged PR #1 with a merge commit (`gh pr merge --merge --match-head-commit`), CI green, head matched. |
 | 3 (`/push-pr`) | `git push` returned 403: the active `gh` account had switched back to the other logged-in account after the start-of-run switch. | Ran `gh auth switch -h github.com -u alfredorevilla` and pushed again; it succeeded. Cause of the flip unknown (another session or process). Halted here to report, because later steps push and merge. |
 
 ## Decisions
@@ -71,6 +72,8 @@
 - Step 4: `merge-default.sh` refuses a dirty tree, and the runbook bookkeeping from step 3 was uncommitted. I committed only that file locally (no push) before re-running; the result was NOOP.
 
 - The command expects an unfinished PRD or plan. This PRD's milestones are already complete, so the inner loop will mostly verify and close the four project-level lines rather than build.
+
+- Step 15: ran as a merge commit, not a rebase merge, because GitHub cannot replay the M7 merge commit. Cited SHAs in the docs stay valid. The review-fix diff was read before the merge: no defects found.
 
 ## Goal results
 
