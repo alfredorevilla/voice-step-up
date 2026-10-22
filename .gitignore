@@ -1,0 +1,26 @@
+bin/
+obj/
+*.user
+.vs/
+.idea/
+TestResults/
+coverage/
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+models/*
+!models/models.lock
+artifacts/
+data/
+
+# Evaluation data (LibriSpeech, decoded audio, caches)
+eval-data/
+.playwright-mcp/
+test-results/
+playwright-report/
+
+# Claude Code agent worktrees
+.claude/worktrees/

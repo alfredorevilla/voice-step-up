@@ -1,0 +1,45 @@
+{
+  "skillOverrides": {
+    "architecture-infra-selection": "off",
+    "database-migrations": "off",
+    "deployment-patterns": "off",
+    "design-system": "off",
+    "frontend-design-direction": "off",
+    "frontend-a11y": "off",
+    "react-performance": "off",
+    "dmux-workflows": "off",
+    "everything-claude-code": "off",
+    "personal-voice": "off",
+    "worktree-ops": "off",
+    "microsoft-docs:microsoft-skill-creator": "off",
+    "anthropic-skills:abogado-tributario": "off",
+    "anthropic-skills:administrador": "off",
+    "anthropic-skills:analista-datos": "off",
+    "anthropic-skills:asesor-inversiones": "off",
+    "anthropic-skills:balance-mensual": "off",
+    "anthropic-skills:contador-publico": "off",
+    "anthropic-skills:economista": "off",
+    "anthropic-skills:gestor-deudas": "off",
+    "anthropic-skills:planificador-financiero": "off",
+    "anthropic-skills:morning": "off",
+    "anthropic-skills:xlsx": "off",
+    "anthropic-skills:pptx": "off",
+    "anthropic-skills:docx": "off",
+    "anthropic-skills:pdf": "off",
+    "anthropic-skills:import-memory": "off",
+    "anthropic-skills:google-workspace": "off"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(scripts/voice-totp.sh)"
+    ],
+    "deny": [
+      "Read(~/.config/voice-step-up/**)",
+      "Bash(*voice-step-up/totp-secret*)",
+      "Bash(*totp-secret*)"
+    ]
+  },
+  "enabledPlugins": {
+    "playwright@anthropic-plugin-directory": true
+  }
+}

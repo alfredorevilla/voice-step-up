@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/StepUp.Api/StepUp.Api.csproj" />
+    <Project Path="src/StepUp.Core/StepUp.Core.csproj" />
+    <Project Path="src/StepUp.FakeAuthority/StepUp.FakeAuthority.csproj" />
+    <Project Path="src/StepUp.Infrastructure/StepUp.Infrastructure.csproj" />
+    <Project Path="src/StepUp.Verifier.Sherpa/StepUp.Verifier.Sherpa.csproj" />
+  </Folder>
+  <Folder Name="/eval/">
+    <Project Path="eval/StepUp.Eval/StepUp.Eval.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/StepUp.Api.Tests/StepUp.Api.Tests.csproj" />
+    <Project Path="tests/StepUp.Core.Tests/StepUp.Core.Tests.csproj" />
+    <Project Path="tests/StepUp.Eval.Tests/StepUp.Eval.Tests.csproj" />
+    <Project Path="tests/StepUp.Infrastructure.Tests/StepUp.Infrastructure.Tests.csproj" />
+    <Project Path="tests/StepUp.Verifier.Tests/StepUp.Verifier.Tests.csproj" />
+  </Folder>
+</Solution>

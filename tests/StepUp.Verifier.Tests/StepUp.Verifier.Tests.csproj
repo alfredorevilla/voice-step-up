@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="org.k2fsa.sherpa.onnx" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Audio\**\*.wav" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\StepUp.Core\StepUp.Core.csproj" />
+    <ProjectReference Include="..\..\src\StepUp.Infrastructure\StepUp.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\StepUp.Verifier.Sherpa\StepUp.Verifier.Sherpa.csproj" />
+  </ItemGroup>
+
+</Project>

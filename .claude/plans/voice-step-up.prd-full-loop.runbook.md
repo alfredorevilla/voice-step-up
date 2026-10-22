@@ -1,0 +1,99 @@
+# voice-step-up full-loop runbook
+
+## Header
+
+- Chosen file: `.claude/prds/voice-step-up.prd.md` (status unknown; no status field)
+- Open items in it: 4 project-level lines (all validation commands pass; no secret, tenant id or raw audio committed, history included; all nine milestones complete; Spec "done when"). Every milestone acceptance item (M0 to M8) is already ticked.
+- Branch: `feat/voice-step-up`, base `main`, HEAD `6648cab` at start, 113 commits ahead of `origin/main`
+- PR: #1 (https://github.com/alfredorevilla/voice-step-up/pull/1), CI green on its first run
+- Started: 2026-10-21T21:51Z
+- Untracked at start: `research/` (user chose: let `/push-pr` commit it as its own commit)
+- gh account: `alfredorevilla` (switched from the other logged-in account at start; it can push, `viewerPermission` ADMIN)
+
+## Tooling
+
+| Tool | Type | Needed by | Availability check | Result 2026-10-21 |
+|---|---|---|---|---|
+| `/loop-start` | Skill | Step 1 | listed in available skills | ok |
+| `/push-pr` | Skill | Steps 3, 6, 8, 10, 12, 14 | listed in available skills | ok |
+| `/merge-default` | Skill | Step 4 | listed in available skills | ok |
+| `/pr-review` | Skill | Step 5 (inside `/goal`) | listed in available skills | ok |
+| `/code-review` | Skill | Step 5 (inside `/goal`) | listed in available skills | ok |
+| `/claude-md-improver` | Skill | Step 9 | listed in available skills | NOT AVAILABLE: step 9 is skipped with a warning, as the command allows |
+| `/session-summary` | Skill | Step 11 | listed in available skills | ok |
+| `/learn-eval` | Skill | Step 13 | listed in available skills | ok |
+| `/ship` | Skill | Step 15 | listed in available skills | ok |
+| `/ecc-plan` | Skill | Inner loop (PRD) | listed in available skills | ok |
+| `/council`, `/teammates` | Skill | Autonomous decisions | listed in available skills | ok |
+| `gh` >= 2.40, authenticated as `alfredorevilla` | CLI | Steps 3, 4, 6, 8, 10, 12, 14, 15 | `gh --version` && `gh auth status` | ok (2.96.0, active `alfredorevilla`) |
+| `claude` | CLI | Steps 5, 7 | `command -v claude` | ok |
+| `git` | CLI | all | `command -v git` | ok |
+
+## Steps
+
+- [x] 1. `/loop-start` on `.claude/prds/voice-step-up.prd.md`; runbook: `.claude/plans/voice-step-up.close-out.loop.runbook.md`
+- [x] 2. Run the loop-start runbook to completion (inner loop): T1 to T5 done, see its Results section
+- [x] 3. `/push-pr`: 3 commits, PR #1 updated
+- [x] 4. `/merge-default`: NOOP, origin/main already merged
+- [x] 5. `claude -p "/goal All non-blocking or low-severity issues found by /pr-review --fix --evals and /code-review are fixed, or goal round eq 5. If goal is achieved output GOAL_ACHIEVED, else GOAL_NOT_ACHIEVED, optionally GOAL_MESSAGE=<string> with extra information"` (GOAL_NOT_ACHIEVED at round 2 of 5, blocked on test-edit approval; resolved with the user: tests kept, both nitpicks fixed by hand; see Failures and Decisions)
+- [x] 6. `/push-pr`: 7 commits (one per concern), PR #1 body updated
+- [x] 7. `claude -p "/goal (all steps of the PRD .claude/prds/voice-step-up.prd.md are completed, and its AC/DoD items are met and checked where required) or goal round eq 5. If achieved output GOAL_ACHIEVED, else GOAL_NOT_ACHIEVED, optionally GOAL_MESSAGE=<string> with extra information"` (GOAL_ACHIEVED at round 1: PRD has 0 unticked boxes, all 48 acceptance ids and the project DoD items ticked with evidence)
+- [x] 8. `/push-pr`: runbook bookkeeping only
+- [x] 9. `/claude-md-improver`: SKIPPED. WARNING: the skill (claude-md-management plugin) is not installed on this machine, so no CLAUDE.md recommendations were applied.
+- [x] 10. `/push-pr`: no changes (step 9 skipped)
+- [x] 11. `/session-summary`: item 6 saved to memory (repo auth setup). Items 7 (edit the /full-loop command, outside this worktree) and 8 (M9 plan) are left for the user.
+- [x] 12. `/push-pr`: runbook ticks for steps 9 to 11
+- [x] 13. `/learn-eval`: 2 reusable patterns found, both Save; not written, because both go to `~/.claude` (outside this worktree) and need the user's approval. See Final report.
+- [x] 14. Final report written below, then `/push-pr`
+- [ ] 15. `/ship --rebase`
+
+## Failures
+
+| Step | Error | Resolution |
+|---|---|---|
+| 5 (`/goal` review-fix) | `GOAL_NOT_ACHIEVED` at round 2 of 5: blocked on approval to edit test code for two nitpicks. 33 files changed, nothing committed. | HALT before step 6, as the command requires. Waiting on the user. |
+| 3 (`/push-pr`) | `git push` returned 403: the active `gh` account had switched back to the other logged-in account after the start-of-run switch. | Ran `gh auth switch -h github.com -u alfredorevilla` and pushed again; it succeeded. Cause of the flip unknown (another session or process). Halted here to report, because later steps push and merge. |
+
+## Decisions
+
+- 2026-10-21: Target is the PRD, not a milestone plan. Options: PRD, the loop runbook, or stop and plan M9. Decision: PRD, because it alone has open items. Rationale: all nine milestone plans and the loop runbook are fully ticked, so the inner loop has only the four project-level PRD lines to verify. Confidence: high (user chose it).
+- 2026-10-21: `research/` stays untracked until the first `/push-pr`, which commits it as its own commit. Confidence: high (user chose it).
+- 2026-10-21: Step 9 is skipped because `/claude-md-improver` is not installed. Confidence: high.
+- 2026-10-21: `gh` switched to `alfredorevilla` before step 1, because the other logged-in account cannot push to this repo. Confidence: high.
+- 2026-10-21: Commits use the noreply author address `24548343+alfredorevilla@users.noreply.github.com` (global `user.email` is already set to it). Rationale: public repo; see the git commit email memory. Confidence: high.
+
+- 2026-10-21 (step 5): The headless review-fix run added 2 new test files (`PayoutPayloadHashTests.cs`, `HardeningTests.cs`) and extended 7 test files without asking, which breaks the global "ask before modifying or extending tests" rule. Options: keep, revert, or review first. Decision: keep them (the user chose this). Rationale: they are the only proof for several fixes (purge, eraser transaction, `secure_delete` read-back, redirect allow-list) and threat-model rows cite them. Confidence: high (user decision). The run itself could not receive the answer, so it must be applied after the run ends.
+## Divergences
+- Step 13: the command says to invoke teammates to decide which `/learn-eval` changes to make. I decided inline instead: there were only two candidates and one hard constraint (both would be written under `~/.claude`, outside this worktree, which needs the user's approval), so a panel would only have restated that.
+- Step 13 finding: the repeated `gh` account flips came from other sessions switching the same global active account (a `~/.claude`-project memory records a session seeing it flipped back within minutes). My own `gh auth switch` calls today were part of that fight. From here on this session uses only the inline `GH_TOKEN=$(gh auth token -u alfredorevilla)` prefix, and pushes go over SSH.
+- Step 5: the headless run stopped at `GOAL_NOT_ACHIEVED`, so by the command it halted. After the user approved the two test edits I fixed them myself (`ShippedDefaultsTests.cs` guard against quoted CSV fields; `HttpVerifierTests.cs` stub now waits asynchronously via an `IResult`) instead of resuming the headless run. The goal's review round was not re-run after those two small fixes.
+- Step 5 verification: after the fixes, the first full `dotnet test` run exited 134 (a test host aborted; 388 tests ran, 0 failed, "error: 1"). Four later full runs were clean (406 tests, 405 passed, 1 skipped by design). The abort is unexplained and did not recur; it may be a flaky crash in one of the 13 tests added by the review run.
+- Step 4: `merge-default.sh` refuses a dirty tree, and the runbook bookkeeping from step 3 was uncommitted. I committed only that file locally (no push) before re-running; the result was NOOP.
+
+- The command expects an unfinished PRD or plan. This PRD's milestones are already complete, so the inner loop will mostly verify and close the four project-level lines rather than build.
+
+## Goal results
+
+| Step | Tokens | Rounds | GOAL_MESSAGE |
+|---|---|---|---|
+| 5 | headless session (transcript under the Claude Code projects folder): 23 turns in the final invocation, about $4.32 reported by `total_cost_usd`, 8,553 output tokens (the JSON `result` was empty; the `GOAL_*` line came from the transcript) | 2 of 5 | GOAL_NOT_ACHIEVED. Everything from `/pr-review` and `/code-review` is fixed in the working tree except two low-severity test nitpicks (`ShippedDefaultsTests.cs:32` plain `Split(',')` CSV parse; `HttpVerifierTests.cs:165` stub blocks on `Task.Delay(...).GetAwaiter().GetResult()`), blocked on approval to edit test code. |
+| 7 | headless session (4 turns, about $0.18 reported by `total_cost_usd`; the JSON `result` held the `GOAL_*` lines) | 1 of 5 | GOAL_ACHIEVED. The PRD has 0 unticked boxes; all 48 acceptance ids and the project lines are ticked with dated evidence. It re-ran no tests or eval and relied on the evidence already recorded in the PRD. |
+
+## Final report
+
+- **Last step reached:** step 14 (this report). Step 15, `/ship --rebase`, follows; its result appears only in the terminal.
+- **PR:** https://github.com/alfredorevilla/voice-step-up/pull/1, 126 commits ahead of `origin/main` at `cad622b`.
+- **CI:** the run for the hardening commits (`2fa88cd`) and the next docs-only commit (`60dd01d`) completed successfully; the run for `cad622b` was still in progress when this was written.
+- **Outcome:** the PRD has 0 unticked boxes. All 48 acceptance ids and the four project-level lines are ticked with dated evidence. A headless review-fix run fixed 13 findings (7 commits). Full `dotnet test`: 406 total, 405 passed, 1 skipped by design, 0 failed; Playwright 5 of 5.
+- **Warnings and skips:**
+  - Step 9 skipped: `/claude-md-improver` is not installed.
+  - Step 10 skipped: no changes.
+  - Step 5 ended `GOAL_NOT_ACHIEVED` (round 2 of 5, blocked on approval to edit test code); resolved with the user (tests kept, two nitpicks fixed by hand).
+  - One unexplained test-host abort (exit 134) in the first full run after the fixes; four later runs were clean.
+  - The review-fix code has had automated review only, no human read.
+  - The PRD "no raw audio" line is ticked with a qualification (8 synthetic text-to-speech fixtures); two old commits name the private-work GitHub account; the root commit on `main` shows a personal email.
+- **Saved by `/session-summary`:** the repo auth setup (SSH alias `github-public`, the `GH_TOKEN` prefix, the shared-`gh`-account cause) to the project memory. Not saved, needing the user: editing the `/full-loop` command (outside this worktree) and an M9 accuracy plan.
+- **Decided by `/learn-eval`:** two candidates, both **Save**, both pending the user's approval because they are written under `~/.claude`:
+  1. A lazy rule "`gh` active account is global": never run `gh auth switch` to make a command work; prefix `GH_TOKEN=$(gh auth token -u <account>)`; prefer an SSH host alias per account; re-check `gh auth status` before each `gh` step in a long flow.
+  2. A lazy rule "git credential helper order": helpers run system, global, local and the first answer wins, so a repo-local helper after the global `gh auth git-credential` never runs; add an empty `helper` value first to reset the list.
+- **Left for the user:** Entra test apps still exist (`scripts/entra-teardown.sh --yes`); `includeIf` and an SSH alias for private-work repos need a directory or remote pattern; the SSH key has no passphrase; M9 is undecided.

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Synthetic speech fixtures of the verifier tests (text-to-speech, not recordings of people). -->
+    <None Include="..\StepUp.Verifier.Tests\Audio\*.wav" Link="Audio\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\eval\StepUp.Eval\StepUp.Eval.csproj" />
+    <ProjectReference Include="..\..\src\StepUp.Verifier.Sherpa\StepUp.Verifier.Sherpa.csproj" />
+  </ItemGroup>
+
+</Project>

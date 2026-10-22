@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\StepUp.Verifier.Tests\StubVerifierService.cs" Link="StubVerifierService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\StepUp.Api\StepUp.Api.csproj" />
+    <ProjectReference Include="..\..\src\StepUp.FakeAuthority\StepUp.FakeAuthority.csproj" />
+  </ItemGroup>
+
+</Project>
